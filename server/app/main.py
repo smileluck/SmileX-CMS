@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from .database import engine, Base, SessionLocal
+from .database import engine, Base, SessionLocal, init_db
 from .routes import auth, articles, groups, media, platforms, publish
 from .plugins.registry import PluginRegistry
 from .plugins.wechat_mp import WeChatMPPlugin
@@ -15,6 +15,7 @@ from .config import UPLOADS_DIR
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()
     PluginRegistry.register(WeChatMPPlugin())
     PluginRegistry.register(XiaohongshuPlugin())
     PluginRegistry.register(BilibiliPlugin())

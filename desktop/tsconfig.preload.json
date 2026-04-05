@@ -9,10 +9,10 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "composite": true,
     "strict": true,
     "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "composite": true
+    "noUnusedParameters": false
   },
-  "include": ["vite.config.ts"]
+  "include": ["electron/preload.ts"]
 }

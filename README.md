@@ -177,6 +177,32 @@ PORT=8000
 DEBUG=true
 ```
 
+## 管理员账户
+
+服务器首次启动时会自动创建数据库表并初始化一个默认管理员账户：
+
+| 字段 | 值 |
+|---|---|
+| 用户名 | `admin` |
+| 密码 | `admin123` |
+| 邮箱 | `admin@smilex.example.com` |
+
+> **生产环境请务必修改默认密码。**
+
+### CLI 管理工具
+
+通过 `server/create_admin.py` 创建新管理员或重置密码：
+
+```bash
+cd server
+
+# 创建管理员
+uv run python create_admin.py create -u <用户名> -e <邮箱> -p <密码> -n <全名>
+
+# 重置密码
+uv run python create_admin.py reset-password -u <用户名> -p <新密码>
+```
+
 ## 部署
 
 ### Docker 部署后端

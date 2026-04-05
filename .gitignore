@@ -1,0 +1,55 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.db
+*.sqlite3
+.ruff_cache/
+
+# ========================
+# Node
+# ========================
+node_modules/
+dist/
+dist-electron/
+
+# ========================
+# IDE
+# ========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Environment
+# ========================
+.env
+!.env.example
+*.local
+
+# ========================
+# Project runtime data
+# ========================
+server/articles/
+server/videos/
+server/uploads/
+*.log
+
+# ========================
+# Build
+# ========================
+build/
+out/

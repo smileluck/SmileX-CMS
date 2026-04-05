@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  server:
+    build: ./server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server/articles:/app/articles
+      - ./server/videos:/app/videos
+      - ./server/uploads:/app/uploads
+      - ./server/cas.db:/app/cas.db
+    environment:
+      - DATABASE_URL=sqlite:///./cas.db
+      - SECRET_KEY=smilex-cas-secret-key-change-in-production
+      - DEBUG=true
+    restart: unless-stopped

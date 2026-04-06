@@ -25,9 +25,7 @@ const menuItems = [
   { key: '/videos', icon: <VideoCameraOutlined />, label: '视频管理' },
   { key: '/tags', icon: <TagsOutlined />, label: '标签管理' },
   { key: '/media', icon: <PictureOutlined />, label: '媒体库' },
-  { key: '/platforms', icon: <CloudUploadOutlined />, label: '平台管理' },
   { key: '/publish/history', icon: <HistoryOutlined />, label: '发布历史' },
-  { key: '/settings', icon: <SettingOutlined />, label: '设置' },
 ];
 
 const getMenuLayout = (): string => localStorage.getItem('menuLayout') || 'sidebar';
@@ -51,6 +49,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   const userMenu = {
     items: [
+      { key: 'platforms', icon: <CloudUploadOutlined />, label: '平台管理', onClick: () => navigate('/platforms') },
       { key: 'settings', icon: <SettingOutlined />, label: '设置', onClick: () => navigate('/settings') },
       { type: 'divider' as const },
       { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: () => dispatch(logout()) },

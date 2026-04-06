@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User
@@ -37,6 +37,13 @@ def bind_platform_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    valid_platforms = {p["platform_name"] for p in PluginRegistry.list_platforms()}
+    if account.platform_name not in valid_platforms:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown platform '{account.platform_name}'. Available: {', '.join(sorted(valid_platforms))}",
+        )
+
     existing = (
         db.query(PlatformAccount)
         .filter(
@@ -87,7 +94,7 @@ def update_platform_account(
     return account
 
 
-@router.delete("/{account_id}")
+@router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 def unbind_platform_account(
     account_id: int,
     current_user: User = Depends(get_current_user),
@@ -104,7 +111,6 @@ def unbind_platform_account(
         raise HTTPException(status_code=404, detail="Platform account not found")
     db.delete(account)
     db.commit()
-    return {"message": "Platform account unbound"}
 
 
 @router.post("/{account_id}/test")

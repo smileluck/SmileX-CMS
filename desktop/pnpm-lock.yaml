@@ -17,6 +17,9 @@ importers:
       '@milkdown/ctx':
         specifier: ^7.5.0
         version: 7.20.0
+      '@milkdown/plugin-listener':
+        specifier: ^7.20.0
+        version: 7.20.0
       '@milkdown/plugin-slash':
         specifier: ^7.5.0
         version: 7.20.0

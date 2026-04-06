@@ -41,7 +41,9 @@ const publishSlice = createSlice({
   reducers: { clearError: (state) => { state.error = null; } },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchPublishTasks.fulfilled, (state, action) => { state.tasks = action.payload; })
+      .addCase(fetchPublishTasks.pending, (state) => { state.isLoading = true; })
+      .addCase(fetchPublishTasks.fulfilled, (state, action) => { state.isLoading = false; state.tasks = action.payload; })
+      .addCase(fetchPublishTasks.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; })
       .addCase(fetchPublishLogs.fulfilled, (state, action) => { state.currentLogs = action.payload; })
       .addCase(createPublishTasks.pending, (state) => { state.isLoading = true; })
       .addCase(createPublishTasks.fulfilled, (state) => { state.isLoading = false; })

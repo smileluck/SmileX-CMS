@@ -1,0 +1,6 @@
+[tool.pyright]
+typeCheckingMode = "basic"
+reportAttributeAccessIssue = false
+reportArgumentType = false
+reportAssignmentType = false
+reportOperatorIssue = false

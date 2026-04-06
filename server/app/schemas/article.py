@@ -1,6 +1,15 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
+
+class TagBrief(BaseModel):
+    id: int
+    name: str
+    color: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 class ArticleBase(BaseModel):
@@ -11,6 +20,7 @@ class ArticleBase(BaseModel):
     cover_image: Optional[str] = None
     group_id: Optional[int] = None
     tags: Optional[List[str]] = None
+    tag_ids: Optional[List[int]] = None
 
 
 class ArticleCreate(ArticleBase):
@@ -26,18 +36,28 @@ class ArticleUpdate(BaseModel):
     cover_image: Optional[str] = None
     group_id: Optional[int] = None
     tags: Optional[List[str]] = None
+    tag_ids: Optional[List[int]] = None
     metadata: Optional[Dict[str, Any]] = None
 
 
-class ArticleResponse(ArticleBase):
+class ArticleResponse(BaseModel):
     id: int
     snow_id: str
-    status: str
+    title: str
+    content: str = ""
+    summary: Optional[str] = None
+    article_type: str = "article"
+    status: str = "draft"
     file_path: Optional[str] = None
+    cover_image: Optional[str] = None
+    group_id: Optional[int] = None
     author_id: int
-    metadata: Optional[Dict[str, Any]] = None
+    tags: Optional[List[str]] = None
+    tag_objects: Optional[List[TagBrief]] = Field(None, validation_alias="tag_objects")
+    metadata: Optional[Dict[str, Any]] = Field(
+        None, validation_alias="article_metadata"
+    )
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)

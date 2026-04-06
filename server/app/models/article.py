@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -16,16 +16,22 @@ class Article(Base):
     status = Column(String(20), default="draft")
     file_path = Column(String(500))
     cover_image = Column(String(255))
-    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True, index=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     tags = Column(JSON)
-    extra_data = Column("metadata", JSON)
+    article_metadata = Column("metadata", JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        index=True,
     )
 
     author = relationship("User", back_populates="articles")
     group = relationship("Group", back_populates="articles")
     media = relationship("Media", back_populates="article")
     publish_tasks = relationship("PublishTask", back_populates="article")
+    tags_rel = relationship("Tag", secondary="article_tags", back_populates="articles", lazy="joined")
+
+    __table_args__ = (Index("ix_articles_user_status", "author_id", "status"),)

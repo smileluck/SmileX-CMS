@@ -8,7 +8,9 @@ class PublishLog(Base):
     __tablename__ = "publish_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(Integer, ForeignKey("publish_tasks.id"), nullable=False)
+    task_id = Column(
+        Integer, ForeignKey("publish_tasks.id"), nullable=False, index=True
+    )
     level = Column(String(10), default="info")
     message = Column(Text)
     details = Column(JSON)

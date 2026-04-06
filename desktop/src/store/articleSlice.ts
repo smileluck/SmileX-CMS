@@ -18,7 +18,7 @@ const initialState: ArticleState = {
 
 export const fetchArticles = createAsyncThunk(
   'article/fetchArticles',
-  async (params: { group_id?: number; status?: string; search?: string }, { rejectWithValue }) => {
+  async (params: { group_id?: number; status?: string; search?: string; tag_id?: number; article_type?: string }, { rejectWithValue }) => {
     try {
       return await apiService.getArticles(params);
     } catch (error: any) {
@@ -27,7 +27,7 @@ export const fetchArticles = createAsyncThunk(
   }
 );
 
-export const createArticle = createAsyncThunk('article/create', async (data: ArticleCreate, { rejectWithValue }) => {
+export const createArticle = createAsyncThunk('article/create', async (data: any, { rejectWithValue }) => {
   try {
     return await apiService.createArticle(data);
   } catch (error: any) {
@@ -35,7 +35,7 @@ export const createArticle = createAsyncThunk('article/create', async (data: Art
   }
 });
 
-export const updateArticle = createAsyncThunk('article/update', async ({ id, data }: { id: number; data: ArticleUpdate }, { rejectWithValue }) => {
+export const updateArticle = createAsyncThunk('article/update', async ({ id, data }: { id: number; data: any }, { rejectWithValue }) => {
   try {
     return await apiService.updateArticle(id, data);
   } catch (error: any) {

@@ -4,6 +4,7 @@ import articleReducer from './articleSlice';
 import mediaReducer from './mediaSlice';
 import platformReducer from './platformSlice';
 import publishReducer from './publishSlice';
+import tagReducer from './tagSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     media: mediaReducer,
     platform: platformReducer,
     publish: publishReducer,
+    tag: tagReducer,
   },
 });
 

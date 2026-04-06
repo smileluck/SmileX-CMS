@@ -33,8 +33,12 @@ const platformSlice = createSlice({
   reducers: { clearError: (state) => { state.error = null; } },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchPlatforms.fulfilled, (state, action) => { state.accounts = action.payload; })
-      .addCase(fetchAvailablePlatforms.fulfilled, (state, action) => { state.availablePlatforms = action.payload; });
+      .addCase(fetchPlatforms.pending, (state) => { state.isLoading = true; })
+      .addCase(fetchPlatforms.fulfilled, (state, action) => { state.isLoading = false; state.accounts = action.payload; })
+      .addCase(fetchPlatforms.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; })
+      .addCase(fetchAvailablePlatforms.pending, (state) => { state.isLoading = true; })
+      .addCase(fetchAvailablePlatforms.fulfilled, (state, action) => { state.isLoading = false; state.availablePlatforms = action.payload; })
+      .addCase(fetchAvailablePlatforms.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; });
   },
 });
 

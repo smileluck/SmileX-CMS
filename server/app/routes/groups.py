@@ -43,7 +43,7 @@ def get_groups(
         .order_by(Group.sort_order)
         .all()
     )
-    return groups
+    return _build_tree(groups)
 
 
 @router.post("", response_model=GroupResponse)
@@ -85,7 +85,7 @@ def update_group(
     return group
 
 
-@router.delete("/{group_id}")
+@router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_group(
     group_id: int,
     current_user: User = Depends(get_current_user),
@@ -100,7 +100,6 @@ def delete_group(
         raise HTTPException(status_code=404, detail="Group not found")
     db.delete(group)
     db.commit()
-    return {"message": "Group deleted"}
 
 
 @router.patch("/sort")

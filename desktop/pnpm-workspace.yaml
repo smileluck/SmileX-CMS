@@ -1,1 +1,3 @@
-onlyBuiltDependencies: electron esbuild
+onlyBuiltDependencies:
+  - electron
+  - esbuild

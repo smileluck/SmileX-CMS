@@ -1,7 +1,8 @@
 import os
+import logging
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User
@@ -9,10 +10,22 @@ from ..models.article import Article
 from ..models.media import Media
 from ..schemas.media import MediaResponse
 from ..snowid import generate_snow_id
-from ..config import UPLOADS_DIR, ARTICLES_DIR
+from ..config import UPLOADS_DIR, ARTICLES_DIR, MAX_UPLOAD_SIZE, ALLOWED_EXTENSIONS
 from ..dependencies import get_current_user
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/media", tags=["media"])
+
+
+def validate_file_extension(filename: str) -> str:
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' is not allowed. Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+        )
+    return ext
 
 
 @router.post("/upload", response_model=MediaResponse)
@@ -21,13 +34,25 @@ async def upload_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    snow_id = generate_snow_id()
-    ext = os.path.splitext(file.filename or "file")[1]
-    filename = f"{snow_id}{ext}"
-    file_path = UPLOADS_DIR / filename
+    filename = file.filename or "file"
+    ext = validate_file_extension(filename)
 
-    content = await file.read()
-    file_path.write_bytes(content)
+    content = await file.read(MAX_UPLOAD_SIZE + 1)
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
+        )
+
+    snow_id = generate_snow_id()
+    safe_filename = f"{snow_id}{ext}"
+    file_path = UPLOADS_DIR / safe_filename
+
+    try:
+        file_path.write_bytes(content)
+    except OSError as e:
+        logger.error("Failed to write uploaded file: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to save file")
 
     mime_type = file.content_type or "application/octet-stream"
     media_type = (
@@ -35,13 +60,15 @@ async def upload_file(
         if mime_type.startswith("image/")
         else "video"
         if mime_type.startswith("video/")
+        else "audio"
+        if mime_type.startswith("audio/")
         else "other"
     )
 
     db_media = Media(
         snow_id=snow_id,
-        filename=file.filename or filename,
-        file_path=f"uploads/{filename}",
+        filename=filename,
+        file_path=f"uploads/{safe_filename}",
         file_type=mime_type,
         file_size=len(content),
         media_type=media_type,
@@ -68,20 +95,32 @@ async def upload_to_article(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
+    filename = file.filename or "file"
+    ext = validate_file_extension(filename)
+
+    content = await file.read(MAX_UPLOAD_SIZE + 1)
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
+        )
+
     article_dir = Path(article.file_path) if article.file_path else None
     if not article_dir or not article_dir.is_absolute():
         article_dir = ARTICLES_DIR.parent / (article.file_path or "")
     article_dir.mkdir(parents=True, exist_ok=True)
 
     snow_id = generate_snow_id()
-    ext = os.path.splitext(file.filename or "file")[1]
-    filename = f"{snow_id}{ext}"
-    dest = article_dir / filename
+    safe_filename = f"{snow_id}{ext}"
+    dest = article_dir / safe_filename
 
-    content = await file.read()
-    dest.write_bytes(content)
+    try:
+        dest.write_bytes(content)
+    except OSError as e:
+        logger.error("Failed to write article file: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to save file")
 
-    relative_path = f"./{filename}"
+    relative_path = f"./{safe_filename}"
 
     mime_type = file.content_type or "application/octet-stream"
     media_type = (
@@ -89,13 +128,15 @@ async def upload_to_article(
         if mime_type.startswith("image/")
         else "video"
         if mime_type.startswith("video/")
+        else "audio"
+        if mime_type.startswith("audio/")
         else "other"
     )
 
     db_media = Media(
         snow_id=snow_id,
-        filename=file.filename or filename,
-        file_path=str(dest),
+        filename=filename,
+        file_path=relative_path,
         file_type=mime_type,
         file_size=len(content),
         media_type=media_type,
@@ -110,8 +151,8 @@ async def upload_to_article(
 
 @router.get("", response_model=List[MediaResponse])
 def get_media_files(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     media_type: Optional[str] = None,
     article_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
@@ -125,7 +166,7 @@ def get_media_files(
     return q.order_by(Media.created_at.desc()).offset(skip).limit(limit).all()
 
 
-@router.delete("/{media_id}")
+@router.delete("/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_media_file(
     media_id: int,
     current_user: User = Depends(get_current_user),
@@ -139,8 +180,12 @@ def delete_media_file(
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
     file_path = Path(media.file_path)
+    if not file_path.is_absolute():
+        file_path = ARTICLES_DIR.parent / file_path
     if file_path.exists():
-        file_path.unlink()
+        try:
+            file_path.unlink()
+        except OSError as e:
+            logger.warning("Failed to delete media file %s: %s", file_path, e)
     db.delete(media)
     db.commit()
-    return {"message": "Media deleted"}

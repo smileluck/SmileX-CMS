@@ -1,6 +1,10 @@
+import os
+import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from .config import DATABASE_URL
+
+logger = logging.getLogger(__name__)
 
 engine = create_engine(
     DATABASE_URL,
@@ -22,7 +26,7 @@ def get_db():
 
 
 def init_db():
-    from . import models  # noqa: F401 — ensure all models are registered with Base
+    from . import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
 
@@ -33,20 +37,28 @@ def init_db():
         if not db.query(User).filter(User.is_admin == True).first():
             from .auth import get_password_hash
 
+            admin_password = os.getenv("ADMIN_DEFAULT_PASSWORD", "admin123")
+            if admin_password == "admin123":
+                logger.warning(
+                    "Using default admin password. Set ADMIN_DEFAULT_PASSWORD env var for production!"
+                )
+
             admin = User(
                 username="admin",
                 email="admin@smilex.example.com",
-                password_hash=get_password_hash("admin123"),
+                password_hash=get_password_hash(admin_password),
                 full_name="Administrator",
                 is_active=True,
                 is_admin=True,
             )
             db.add(admin)
             db.commit()
-            print(
-                "[init_db] Default admin account created (username: admin, password: admin123)"
-            )
+            logger.info("Default admin account created (username: admin)")
         else:
-            print("[init_db] Admin account already exists, skipping.")
+            logger.info("Admin account already exists, skipping.")
+    except Exception as e:
+        db.rollback()
+        logger.error("Failed to initialize admin account: %s", e)
+        raise
     finally:
         db.close()

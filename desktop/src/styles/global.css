@@ -23,9 +23,3 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
-
-.milkdown-editor .ProseMirror {
-  outline: none;
-  min-height: 400px;
-  padding: 16px;
-}

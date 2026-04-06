@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Table, Tag, Button, Space, message } from 'antd';
-import { ReloadOutlined, EyeOutlined } from '@ant-design/icons';
+import { ReloadOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchPublishTasks } from '../store/publishSlice';
@@ -21,15 +21,23 @@ const PublishHistory: React.FC = () => {
   useEffect(() => { dispatch(fetchPublishTasks()); }, [dispatch]);
 
   const handleRetry = async (id: number) => {
-    await apiService.retryPublishTask(id);
-    message.success('已重新加入队列');
-    dispatch(fetchPublishTasks());
+    try {
+      await apiService.retryPublishTask(id);
+      message.success('已重新加入队列');
+      dispatch(fetchPublishTasks());
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '重试失败');
+    }
   };
 
   const handleCancel = async (id: number) => {
-    await apiService.cancelPublishTask(id);
-    message.success('已取消');
-    dispatch(fetchPublishTasks());
+    try {
+      await apiService.cancelPublishTask(id);
+      message.success('已取消');
+      dispatch(fetchPublishTasks());
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '取消失败');
+    }
   };
 
   const columns = [
@@ -44,7 +52,7 @@ const PublishHistory: React.FC = () => {
     { title: '错误信息', dataIndex: 'error_message', key: 'error_message', ellipsis: true },
     {
       title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 180,
-      render: (t: string) => new Date(t).toLocaleString(),
+      render: (t: string) => t ? new Date(t).toLocaleString() : '-',
     },
     {
       title: '操作', key: 'action', width: 160,
@@ -58,12 +66,14 @@ const PublishHistory: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
         <h1>发布历史</h1>
         <Button icon={<ReloadOutlined />} onClick={() => dispatch(fetchPublishTasks())}>刷新</Button>
       </div>
-      <Table columns={columns} dataSource={tasks} rowKey="id" loading={isLoading} pagination={{ pageSize: 20 }} />
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <Table columns={columns} dataSource={tasks} rowKey="id" loading={isLoading} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }} style={{ height: '100%' }} />
+      </div>
     </div>
   );
 };

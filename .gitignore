@@ -52,4 +52,5 @@ server/uploads/
 # Build
 # ========================
 build/
+!desktop/build/
 out/

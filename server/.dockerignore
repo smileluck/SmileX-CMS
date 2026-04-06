@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ruff_cache/
+.env
+*.db
+*.sqlite3
+articles/
+videos/
+uploads/
+*.log
+.git/
+.gitignore
+create_admin.py
+alembic/

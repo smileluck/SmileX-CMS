@@ -22,6 +22,31 @@ export interface Token {
   token_type: string;
 }
 
+export interface Tag {
+  id: number;
+  name: string;
+  color: string | null;
+  user_id: number;
+  article_count: number;
+  created_at: string;
+}
+
+export interface TagCreate {
+  name: string;
+  color?: string;
+}
+
+export interface TagUpdate {
+  name?: string;
+  color?: string;
+}
+
+export interface TagBrief {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 export interface Article {
   id: number;
   snow_id: string;
@@ -35,6 +60,7 @@ export interface Article {
   group_id: number | null;
   author_id: number;
   tags: string[] | null;
+  tag_objects: TagBrief[] | null;
   metadata: Record<string, any> | null;
   created_at: string;
   updated_at: string;
@@ -48,6 +74,7 @@ export interface ArticleCreate {
   cover_image?: string;
   group_id?: number;
   tags?: string[];
+  tag_ids?: number[];
 }
 
 export interface ArticleUpdate {
@@ -59,6 +86,7 @@ export interface ArticleUpdate {
   cover_image?: string;
   group_id?: number;
   tags?: string[];
+  tag_ids?: number[];
   metadata?: Record<string, any>;
 }
 
@@ -162,4 +190,12 @@ export interface ApiResponse<T> {
   data: T;
   message?: string;
   success: boolean;
+}
+
+export interface ArticlePublishStatus {
+  platform_name: string;
+  account_name: string;
+  status: string;
+  platform_post_url: string | null;
+  error_message: string | null;
 }

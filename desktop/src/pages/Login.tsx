@@ -2,15 +2,24 @@ import React from 'react';
 import { Form, Input, Button, Card, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate, Navigate } from 'react-router-dom';
 import type { AppDispatch, RootState } from '../store';
 import { login } from '../store/authSlice';
 
 const Login: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isLoading, error } = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();
+  const { isLoading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const onFinish = async (values: { username: string; password: string }) => {
-    await dispatch(login(values));
+    const result = await dispatch(login(values));
+    if (login.fulfilled.match(result)) {
+      navigate('/dashboard', { replace: true });
+    }
   };
 
   return (

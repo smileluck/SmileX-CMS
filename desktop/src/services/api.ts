@@ -4,7 +4,7 @@ import type {
   Token, User, UserCreate,
   Article, ArticleCreate, ArticleUpdate,
   Tag, TagCreate, TagUpdate,
-  Media,
+  Media, AppSettings,
   PlatformAccount, PlatformAccountCreate, PlatformInfo,
   PublishTask, PublishTaskCreate, PublishLog, PublishBatchResponse,
 } from '../types';
@@ -215,8 +215,21 @@ class ApiService {
   getMediaUrl(filePath: string): string {
     const base = this.baseURL.replace('/api', '');
     if (filePath.startsWith('http')) return filePath;
-    if (filePath.startsWith('./') || filePath.startsWith('uploads/')) {
-      return `${base}/${filePath.replace(/^\.\//, '')}`;
+    if (filePath.startsWith('uploads/')) {
+      return `${base}/${filePath}`;
+    }
+    if (filePath.startsWith('videos/') || filePath.startsWith('articles/')) {
+      return `${base}/storage-files/${filePath}`;
+    }
+    if (filePath.startsWith('images/')) {
+      return `${base}/storage-files/${filePath}`;
+    }
+    if (filePath.startsWith('./')) {
+      const cleaned = filePath.replace(/^\.\//, '');
+      if (cleaned.startsWith('images/')) {
+        return `${base}/storage-files/${cleaned}`;
+      }
+      return `${base}/${cleaned}`;
     }
     return `${base}/${filePath}`;
   }
@@ -241,6 +254,16 @@ class ApiService {
     error_message: string | null;
   }>>> {
     const { data } = await this.client.get('/articles/publish-summary/batch');
+    return data;
+  }
+
+  async getSettings(): Promise<AppSettings> {
+    const { data } = await this.client.get<AppSettings>('/settings');
+    return data;
+  }
+
+  async updateSettings(settings: Record<string, string>): Promise<AppSettings> {
+    const { data } = await this.client.put<AppSettings>('/settings', { settings });
     return data;
   }
 }

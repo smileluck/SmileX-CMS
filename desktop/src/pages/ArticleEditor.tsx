@@ -187,7 +187,7 @@ const ArticleEditor: React.FC = () => {
     }
     try {
       const media = await apiService.uploadToArticle(articleId!, file);
-      const imgMd = `![${file.name}](./${media.file_path.replace(/^\.\//, '')})`;
+      const imgMd = `![${file.name}](./${media.file_path})`;
       setContent(prev => prev + '\n' + imgMd);
       message.success('图片上传成功');
     } catch {

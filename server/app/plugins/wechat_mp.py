@@ -42,11 +42,11 @@ class WeChatMPPlugin(BasePublishPlugin):
         async with httpx.AsyncClient() as client:
             import json
             from pathlib import Path
-            from ..config import ARTICLES_DIR
+            from ..config import BASE_STORAGE_DIR
 
             article_dir = Path(article.file_path) if article.file_path else None
             if article_dir and not article_dir.is_absolute():
-                article_dir = ARTICLES_DIR.parent / article_dir
+                article_dir = BASE_STORAGE_DIR / article_dir
 
             content_text = article.content or ""
             first_image = None
@@ -54,8 +54,9 @@ class WeChatMPPlugin(BasePublishPlugin):
 
             img_matches = re.findall(r"!\[.*?\]\((.*?)\)", content_text)
             for img_path in img_matches:
-                if img_path.startswith("./") and article_dir:
-                    full_path = article_dir / img_path.replace("./", "")
+                if article_dir:
+                    clean_path = img_path.lstrip("./")
+                    full_path = article_dir / clean_path
                     if full_path.exists():
                         first_image = full_path
                         break

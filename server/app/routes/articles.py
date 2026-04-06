@@ -16,12 +16,23 @@ from ..models.platform import PlatformAccount
 from ..models.tag import Tag, ArticleTag
 from ..schemas.article import ArticleCreate, ArticleUpdate, ArticleResponse, TagBrief
 from ..snowid import generate_snow_id
-from ..config import ARTICLES_DIR
+from ..config import BASE_STORAGE_DIR
+from ..routes.settings import (
+    get_articles_dir as _get_articles_dir,
+    get_videos_dir as _get_videos_dir,
+    _get_base_storage_dir,
+)
 from ..dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
+
+
+def _get_content_dir(article_type: str, db: Session, user_id: int) -> Path:
+    if article_type == "video":
+        return _get_videos_dir(db, user_id)
+    return _get_articles_dir(db, user_id)
 
 
 def _sanitize_filename(name: str) -> str:
@@ -32,17 +43,19 @@ def _sanitize_filename(name: str) -> str:
     return sanitized
 
 
-def _article_dir(snow_id: str, title: str) -> Path:
-    return ARTICLES_DIR / f"{snow_id}_{_sanitize_filename(title)}"
+def _article_dir(snow_id: str, title: str, base_dir: Path = None) -> Path:
+    base = base_dir or BASE_STORAGE_DIR
+    return base / f"{_sanitize_filename(title)}-{snow_id}"
 
 
-def _resolve_article_dir(article: Article) -> Path:
+def _resolve_article_dir(article: Article, base_dir: Path = None) -> Path:
+    base = base_dir or BASE_STORAGE_DIR
     if article.file_path:
         p = Path(article.file_path)
         if not p.is_absolute():
-            p = ARTICLES_DIR.parent / p
+            p = BASE_STORAGE_DIR / p
         return p
-    return _article_dir(article.snow_id, article.title)
+    return _article_dir(article.snow_id, article.title, base)
 
 
 def _sync_article_tags(db: Session, article: Article, tag_ids: List[int], user_id: int):
@@ -92,9 +105,11 @@ def create_article(
     db: Session = Depends(get_db),
 ):
     snow_id = generate_snow_id()
-    article_dir = _article_dir(snow_id, article.title)
+    content_dir = _get_content_dir(article.article_type, db, current_user.id)
+    article_dir = _article_dir(snow_id, article.title, content_dir)
     try:
         article_dir.mkdir(parents=True, exist_ok=True)
+        (article_dir / "images").mkdir(exist_ok=True)
         (article_dir / "index.md").write_text(article.content, encoding="utf-8")
     except OSError as e:
         logger.error("Failed to create article directory: %s", e)
@@ -110,7 +125,7 @@ def create_article(
         group_id=article.group_id,
         tags=article.tags or [],
         author_id=current_user.id,
-        file_path=str(article_dir.relative_to(ARTICLES_DIR.parent)),
+        file_path=str(article_dir.relative_to(BASE_STORAGE_DIR)),
     )
     db.add(db_article)
     db.flush()
@@ -239,20 +254,23 @@ def update_article(
         _sync_article_tags(db, article, tag_ids_value, current_user.id)
 
     if "title" in update_data and update_data["title"] and article.file_path:
-        old_dir = _resolve_article_dir(article)
-        new_dir_name = f"{article.snow_id}_{_sanitize_filename(update_data['title'])}"
-        new_dir = ARTICLES_DIR / new_dir_name
+        content_dir = _get_content_dir(article.article_type, db, current_user.id)
+        old_dir = _resolve_article_dir(article, content_dir)
+        new_dir_name = f"{_sanitize_filename(update_data['title'])}-{article.snow_id}"
+        new_dir = content_dir / new_dir_name
         if old_dir.exists() and old_dir != new_dir:
             try:
                 old_dir.rename(new_dir)
-                article.file_path = str(new_dir.relative_to(ARTICLES_DIR.parent))
+                article.file_path = str(new_dir.relative_to(BASE_STORAGE_DIR))
             except OSError as e:
                 logger.warning("Failed to rename article directory: %s", e)
 
     if article_update.content is not None:
-        article_dir = _resolve_article_dir(article)
+        content_dir = _get_content_dir(article.article_type, db, current_user.id)
+        article_dir = _resolve_article_dir(article, content_dir)
         try:
             article_dir.mkdir(parents=True, exist_ok=True)
+            (article_dir / "images").mkdir(exist_ok=True)
             (article_dir / "index.md").write_text(
                 article_update.content, encoding="utf-8"
             )
@@ -284,7 +302,8 @@ def delete_article(
         )
 
     if article.file_path:
-        article_dir = _resolve_article_dir(article)
+        content_dir = _get_content_dir(article.article_type, db, current_user.id)
+        article_dir = _resolve_article_dir(article, content_dir)
         if article_dir.exists():
             shutil.rmtree(article_dir, ignore_errors=True)
 
@@ -310,9 +329,11 @@ def duplicate_article(
 
     snow_id = generate_snow_id()
     new_title = f"{article.title} (副本)"
-    article_dir = _article_dir(snow_id, new_title)
+    content_dir = _get_content_dir(article.article_type, db, current_user.id)
+    article_dir = _article_dir(snow_id, new_title, content_dir)
     try:
         article_dir.mkdir(parents=True, exist_ok=True)
+        (article_dir / "images").mkdir(exist_ok=True)
         (article_dir / "index.md").write_text(article.content, encoding="utf-8")
     except OSError as e:
         logger.error("Failed to duplicate article files: %s", e)
@@ -328,7 +349,7 @@ def duplicate_article(
         tags=article.tags,
         metadata=article.article_metadata,
         author_id=current_user.id,
-        file_path=str(article_dir.relative_to(ARTICLES_DIR.parent)),
+        file_path=str(article_dir.relative_to(BASE_STORAGE_DIR)),
     )
     db.add(new_article)
     db.flush()

@@ -192,6 +192,10 @@ export interface ApiResponse<T> {
   success: boolean;
 }
 
+export interface AppSettings {
+  settings: Record<string, string>;
+}
+
 export interface ArticlePublishStatus {
   platform_name: string;
   account_name: string;

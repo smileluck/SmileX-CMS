@@ -23,3 +23,14 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+.milkdown {
+  height: 100%;
+  padding: 12px;
+  outline: none;
+}
+
+.milkdown .editor {
+  height: 100%;
+  outline: none;
+}

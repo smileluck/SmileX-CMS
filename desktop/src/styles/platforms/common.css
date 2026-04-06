@@ -1,0 +1,165 @@
+.preview-common {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #333;
+  word-wrap: break-word;
+}
+
+.preview-common h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 24px 0 16px;
+  line-height: 1.4;
+}
+
+.preview-common h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 20px 0 14px;
+  line-height: 1.4;
+}
+
+.preview-common h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 18px 0 12px;
+  line-height: 1.4;
+}
+
+.preview-common h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 16px 0 10px;
+  line-height: 1.4;
+}
+
+.preview-common h5 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 14px 0 8px;
+  line-height: 1.4;
+}
+
+.preview-common h6 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 12px 0 8px;
+  line-height: 1.4;
+  color: #666;
+}
+
+.preview-common p {
+  margin: 0 0 16px;
+}
+
+.preview-common strong {
+  font-weight: 700;
+}
+
+.preview-common em {
+  font-style: italic;
+}
+
+.preview-common del {
+  text-decoration: line-through;
+}
+
+.preview-common a {
+  color: #576b95;
+  text-decoration: none;
+}
+
+.preview-common a:hover {
+  text-decoration: underline;
+}
+
+.preview-common img {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.preview-common blockquote {
+  margin: 16px 0;
+  padding: 8px 16px;
+  border-left: 4px solid #ddd;
+  background: #f9f9f9;
+  color: #666;
+}
+
+.preview-common blockquote p {
+  margin: 0 0 8px;
+}
+
+.preview-common blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.preview-common ul,
+.preview-common ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.preview-common li {
+  margin: 4px 0;
+}
+
+.preview-common li > ul,
+.preview-common li > ol {
+  margin: 4px 0;
+}
+
+.preview-common code {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.preview-common pre {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.preview-common pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.preview-common hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 24px 0;
+}
+
+.preview-common table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.preview-common th,
+.preview-common td {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.preview-common th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.preview-common tr:nth-child(even) {
+  background: #fafafa;
+}

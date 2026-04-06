@@ -15,7 +15,9 @@
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
     "@milkdown/core": "^7.5.0",
+    "@milkdown/crepe": "^7.20.0",
     "@milkdown/ctx": "^7.5.0",
+    "@milkdown/kit": "^7.20.0",
     "@milkdown/plugin-listener": "^7.20.0",
     "@milkdown/plugin-slash": "^7.5.0",
     "@milkdown/plugin-upload": "^7.5.0",

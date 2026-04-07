@@ -1,4 +1,5 @@
 import os
+import shutil
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,6 +90,15 @@ async def upload_file(
         else "other"
     )
 
+    logger.info(
+        "Uploaded file: filename=%s, mime_type=%s, size=%d bytes, media_type=%s, saved_to=%s",
+        filename,
+        mime_type,
+        len(content),
+        media_type,
+        str(file_path),
+    )
+
     db_media = Media(
         snow_id=snow_id,
         filename=filename,
@@ -101,6 +111,14 @@ async def upload_file(
     db.add(db_media)
     db.commit()
     db.refresh(db_media)
+
+    logger.info(
+        "Media record created: snow_id=%s, db_file_path=uploads/%s, user_id=%d",
+        snow_id,
+        safe_filename,
+        current_user.id,
+    )
+
     return db_media
 
 
@@ -161,6 +179,16 @@ async def upload_to_article(
         else "other"
     )
 
+    logger.info(
+        "Uploaded file to article: filename=%s, mime_type=%s, size=%d bytes, media_type=%s, saved_to=%s, article_id=%d",
+        filename,
+        mime_type,
+        len(content),
+        media_type,
+        str(dest),
+        article_id,
+    )
+
     db_media = Media(
         snow_id=snow_id,
         filename=filename,
@@ -174,7 +202,81 @@ async def upload_to_article(
     db.add(db_media)
     db.commit()
     db.refresh(db_media)
+
+    logger.info(
+        "Media record created: snow_id=%s, db_file_path=%s, article_id=%d, user_id=%d",
+        snow_id,
+        relative_path,
+        article_id,
+        current_user.id,
+    )
+
     return db_media
+
+
+@router.post("/copy-to-article/{article_id}/{media_id}", response_model=MediaResponse)
+def copy_media_to_article(
+    article_id: int,
+    media_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    media = (
+        db.query(Media)
+        .filter(Media.id == media_id, Media.user_id == current_user.id)
+        .first()
+    )
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    src_path = Path(media.file_path)
+    if not src_path.is_absolute():
+        src_path = BASE_STORAGE_DIR / src_path
+    if not src_path.exists():
+        raise HTTPException(status_code=404, detail="Source file not found")
+
+    article_dir = _resolve_article_dir(article, db, current_user.id)
+    images_dir = article_dir / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(media.filename).suffix.lower() or Path(media.file_path).suffix.lower()
+    snow_id = generate_snow_id()
+    now = datetime.now(timezone.utc)
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"{timestamp}_{snow_id}{ext}"
+    dest = images_dir / safe_filename
+
+    try:
+        shutil.copy2(str(src_path), str(dest))
+    except OSError as e:
+        logger.error("Failed to copy media file to article: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to copy file")
+
+    relative_path = (
+        str(article_dir.relative_to(BASE_STORAGE_DIR)) + f"/images/{safe_filename}"
+    )
+
+    media.file_path = relative_path
+    media.article_id = article_id
+    db.commit()
+    db.refresh(media)
+
+    logger.info(
+        "Copied media to article: media_id=%d, article_id=%d, new_path=%s",
+        media_id,
+        article_id,
+        relative_path,
+    )
+
+    return media
 
 
 @router.get("", response_model=List[MediaResponse])

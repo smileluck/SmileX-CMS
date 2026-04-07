@@ -15,6 +15,8 @@ import {
   RedoOutlined,
   BlockOutlined,
   TableOutlined,
+  EditOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 
@@ -22,6 +24,8 @@ interface EditorToolbarProps {
   onInsertMarkdown: (before: string, after?: string, placeholder?: string) => void;
   onImageUpload: (file: File) => void;
   editorReady: boolean;
+  editMode?: 'wysiwyg' | 'markdown';
+  onToggleEditMode?: () => void;
 }
 
 const headingItems: MenuProps['items'] = [
@@ -37,6 +41,8 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onInsertMarkdown,
   onImageUpload,
   editorReady,
+  editMode = 'wysiwyg',
+  onToggleEditMode,
 }) => {
   const disabled = !editorReady;
 
@@ -124,6 +130,15 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
       <div style={{ flex: 1 }} />
 
       <Space size={2}>
+        <Tooltip title={editMode === 'wysiwyg' ? '源码模式' : '富文本模式'}>
+          <Button
+            type={editMode === 'markdown' ? 'primary' : 'text'}
+            size="small"
+            icon={editMode === 'wysiwyg' ? <FileTextOutlined /> : <EditOutlined />}
+            onClick={onToggleEditMode}
+          />
+        </Tooltip>
+        <div style={{ width: 1, height: 16, background: '#e8e8e8', margin: '0 2px' }} />
         <Tooltip title="撤销 (Ctrl+Z)">
           <Button type="text" size="small" icon={<UndoOutlined />} disabled={disabled} />
         </Tooltip>

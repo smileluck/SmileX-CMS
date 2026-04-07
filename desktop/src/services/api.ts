@@ -121,6 +121,11 @@ class ApiService {
     return data;
   }
 
+  async copyMediaToArticle(articleId: number, mediaId: number): Promise<Media> {
+    const { data } = await this.client.post<Media>(`/media/copy-to-article/${articleId}/${mediaId}`);
+    return data;
+  }
+
   async deleteMedia(id: number): Promise<void> {
     await this.client.delete(`/media/${id}`);
   }

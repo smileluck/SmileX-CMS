@@ -24,10 +24,11 @@ const PhoneFrame: React.FC<{
       )}
       <div style={{
         position: 'relative',
-        width: 375,
         maxWidth: '100%',
         flex: 1,
         minHeight: 0,
+        aspectRatio: '1440 / 3200',
+        height: '100%',
         borderRadius: 36,
         border: '6px solid #1a1a1a',
         background: '#fff',

@@ -1,14 +1,12 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import PhoneFrame from './PhoneFrame';
-import { platformNameMap } from '../PlatformIcon';
 import '../../styles/platforms/common.css';
-import '../../styles/platforms/wechat-mp.css';
 
-export type PlatformKey = 'common' | 'wechat_mp';
+export type PlatformKey = 'mobile' | 'desktop';
 
 const platformClassMap: Record<PlatformKey, string> = {
-  common: 'preview-common',
-  wechat_mp: 'preview-wechat-mp',
+  mobile: 'preview-common',
+  desktop: 'preview-common',
 };
 
 interface PlatformPreviewProps {
@@ -44,16 +42,34 @@ const PlatformPreview: React.FC<PlatformPreviewProps> = ({
   }, [syncEnabled, syncScrollRef, handleScroll]);
 
   const className = platformClassMap[platform] || 'preview-common';
-  const label = platform === 'common' ? '通用预览' : (platformNameMap[platform] || platform);
+
+  const contentEl = (
+    <div
+      ref={contentRef}
+      className={className}
+      style={{ minHeight: '100%' }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+
+  if (platform === 'desktop') {
+    return (
+      <div style={{
+        width: '100%',
+        height: '100%',
+        overflow: 'auto',
+        padding: 24,
+        background: '#fff',
+        borderRadius: 8,
+      }}>
+        {contentEl}
+      </div>
+    );
+  }
 
   return (
-    <PhoneFrame platformLabel={label}>
-      <div
-        ref={contentRef}
-        className={className}
-        style={{ minHeight: '100%' }}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+    <PhoneFrame platformLabel="手机端预览">
+      {contentEl}
     </PhoneFrame>
   );
 };

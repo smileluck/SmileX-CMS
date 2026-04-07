@@ -14,6 +14,7 @@ import PublishModal from '../components/PublishModal';
 import EditorToolbar from '../components/Editor/EditorToolbar';
 import PlatformPreview from '../components/Preview/PlatformPreview';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
+import type { Media } from '../types';
 
 const MilkdownEditor: React.FC<{
   value: string;
@@ -95,9 +96,11 @@ const ArticleEditor: React.FC = () => {
   const [previewHtml, setPreviewHtml] = useState('');
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [articleId, setArticleId] = useState<number | null>(id ? Number(id) : null);
-  const [platform, setPlatform] = useState<PlatformKey>('wechat_mp');
+  const [platform, setPlatform] = useState<PlatformKey>('mobile');
   const [syncScroll, setSyncScroll] = useState(true);
   const [editorReady, setEditorReady] = useState(true);
+  const [editMode, setEditMode] = useState<'wysiwyg' | 'markdown'>('markdown');
+  const [pendingImages, setPendingImages] = useState<{ mediaId: number; originalPath: string }[]>([]);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,6 +147,20 @@ const ArticleEditor: React.FC = () => {
         if (shouldNavigate) {
           navigate(`/articles/${result.id}/edit`, { replace: true });
         }
+        if (pendingImages.length > 0) {
+          let updatedContent = content;
+          for (const img of pendingImages) {
+            try {
+              const copied = await apiService.copyMediaToArticle(result.id, img.mediaId);
+              updatedContent = updatedContent.replace(img.originalPath, copied.file_path);
+            } catch {
+              console.warn('Failed to copy pending image to article', img.mediaId);
+            }
+          }
+          setContent(updatedContent);
+          setPendingImages([]);
+          await dispatch(updateArticle({ id: result.id, data: { title, content: updatedContent, tag_ids: tagIds } })).unwrap();
+        }
       }
       return result;
     } catch {
@@ -151,7 +168,7 @@ const ArticleEditor: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  }, [articleId, title, content, tagIds, dispatch, navigate]);
+  }, [articleId, title, content, tagIds, dispatch, navigate, pendingImages]);
 
   const autoSaveFn = useCallback(async () => {
     if (!title.trim() || !articleId) return;
@@ -181,21 +198,22 @@ const ArticleEditor: React.FC = () => {
   }, [navigate, articleId, title]);
 
   const handleImageUpload = useCallback(async (file: File) => {
-    let uploadId = articleId;
-    if (!uploadId) {
-      const result = await doSave(true);
-      if (!result) return;
-      uploadId = result.id;
-    }
     try {
-      const media = await apiService.uploadToArticle(uploadId!, file);
-      const imgMd = `![${file.name}](./${media.file_path})`;
-      setContent(prev => prev + '\n' + imgMd);
+      if (articleId) {
+        const media = await apiService.uploadToArticle(articleId, file);
+        const imgMd = `![${file.name}](./${media.file_path})`;
+        setContent(prev => prev + '\n' + imgMd);
+      } else {
+        const media = await apiService.uploadFile(file);
+        const imgMd = `![${file.name}](${media.file_path})`;
+        setPendingImages(prev => [...prev, { mediaId: media.id, originalPath: media.file_path }]);
+        setContent(prev => prev + '\n' + imgMd);
+      }
       message.success('图片上传成功');
     } catch {
       message.error('图片上传失败');
     }
-  }, [articleId, doSave]);
+  }, [articleId]);
 
   const handleInsertMarkdown = useCallback((before: string, after: string = '', placeholder: string = '') => {
     const insertion = before + (placeholder || '') + (after || '');
@@ -307,9 +325,31 @@ const ArticleEditor: React.FC = () => {
             onInsertMarkdown={handleInsertMarkdown}
             onImageUpload={handleImageUpload}
             editorReady={editorReady}
+            editMode={editMode}
+            onToggleEditMode={() => setEditMode(m => m === 'wysiwyg' ? 'markdown' : 'wysiwyg')}
           />
           <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-            <MilkdownEditor value={content} onChange={setContent} editorContainerRef={editorContainerRef} />
+            {editMode === 'wysiwyg' ? (
+              <MilkdownEditor value={content} onChange={setContent} editorContainerRef={editorContainerRef} />
+            ) : (
+              <textarea
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  resize: 'none',
+                  padding: 16,
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  background: '#fff',
+                }}
+                placeholder="请输入 Markdown 内容..."
+              />
+            )}
           </div>
         </div>
         <div style={{ flex: 1, border: '1px solid #d9d9d9', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -329,8 +369,8 @@ const ArticleEditor: React.FC = () => {
               optionType="button"
               buttonStyle="solid"
             >
-              <Radio.Button value="wechat_mp">公众号</Radio.Button>
-              <Radio.Button value="common">通用</Radio.Button>
+              <Radio.Button value="mobile">手机端</Radio.Button>
+              <Radio.Button value="desktop">桌面端</Radio.Button>
             </Radio.Group>
             <Space size={8}>
               <span style={{ fontSize: 12, color: '#999' }}>同步滚动</span>

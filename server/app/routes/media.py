@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models.user import User
 from ..models.article import Article
@@ -291,12 +291,16 @@ def get_media_files(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Media).filter(Media.user_id == current_user.id)
+    q = (
+        db.query(Media)
+        .filter(Media.user_id == current_user.id)
+        .options(joinedload(Media.article))
+    )
     if media_type:
         q = q.filter(Media.media_type == media_type)
     if article_id:
         q = q.filter(Media.article_id == article_id)
-    return q.order_by(Media.created_at.desc()).offset(skip).limit(limit).all()
+    return q.order_by(Media.created_at.desc()).offset(skip).limit(limit).unique().all()
 
 
 @router.delete("/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -317,7 +321,7 @@ def delete_media_file(
     if not file_path.is_absolute():
         file_path = BASE_STORAGE_DIR / file_path
 
-    if file_path.exists():
+    if media.article_id is None and file_path.exists():
         try:
             file_path.unlink()
         except OSError as e:

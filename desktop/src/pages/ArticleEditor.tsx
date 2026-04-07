@@ -20,14 +20,20 @@ const MilkdownEditor: React.FC<{
   value: string;
   onChange: (val: string) => void;
   editorContainerRef?: React.RefObject<HTMLDivElement | null>;
-}> = ({ value, onChange, editorContainerRef }) => {
+  articleId: number | null;
+  onPendingImage?: (mediaId: number, originalPath: string) => void;
+}> = ({ value, onChange, editorContainerRef, articleId, onPendingImage }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const editorInstanceRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   const valueRef = useRef(value);
+  const articleIdRef = useRef(articleId);
+  const onPendingImageRef = useRef(onPendingImage);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { valueRef.current = value; }, [value]);
+  useEffect(() => { articleIdRef.current = articleId; }, [articleId]);
+  useEffect(() => { onPendingImageRef.current = onPendingImage; }, [onPendingImage]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -41,10 +47,51 @@ const MilkdownEditor: React.FC<{
         const { nord } = await import('@milkdown/theme-nord');
         const { ReactEditor } = await import('@milkdown/react');
         const { listener, listenerCtx } = await import('@milkdown/plugin-listener');
+        const { uploadConfig, uploadPlugin } = await import('@milkdown/plugin-upload');
+        const { Fragment } = await import('@milkdown/prose/model');
+        const { Decoration } = await import('@milkdown/prose/view');
 
         await import('@milkdown/theme-nord/style.css');
 
         if (destroyed || !editorRef.current) return;
+
+        const customUploader = async (files: FileList, schema: any, ctx: any, insertPos: number) => {
+          const imgs: File[] = [];
+          for (let i = 0; i < files.length; i++) {
+            const file = files.item(i);
+            if (file && file.type.includes('image')) imgs.push(file);
+          }
+          if (imgs.length === 0) return Fragment.empty;
+
+          const { image } = schema.nodes;
+          if (!image) return Fragment.empty;
+
+          const nodes = await Promise.all(imgs.map(async (file) => {
+            try {
+              let filePath: string;
+              const currentArticleId = articleIdRef.current;
+              if (currentArticleId) {
+                const media = await apiService.uploadToArticle(currentArticleId, file);
+                filePath = media.file_path;
+              } else {
+                const media = await apiService.uploadFile(file);
+                filePath = media.file_path;
+                if (onPendingImageRef.current) {
+                  onPendingImageRef.current(media.id, media.file_path);
+                }
+              }
+              const src = apiService.getMediaUrl(filePath);
+              return image.createAndFill({ src, alt: file.name });
+            } catch (err) {
+              console.error('Image upload failed:', err);
+              return null;
+            }
+          }));
+
+          const validNodes = nodes.filter((n): n is any => n !== null);
+          if (validNodes.length === 0) return Fragment.empty;
+          return Fragment.from(validNodes);
+        };
 
         const editor = await Editor.make()
           .config((ctx) => {
@@ -53,11 +100,24 @@ const MilkdownEditor: React.FC<{
             ctx.get(listenerCtx).markdownUpdated((ctx, markdown) => {
               onChangeRef.current(markdown);
             });
+            ctx.set(uploadConfig.key, {
+              uploader: customUploader,
+              enableHtmlFileUploader: true,
+              uploadWidgetFactory: (pos: number, spec: any) => {
+                const widgetDOM = document.createElement('span');
+                widgetDOM.textContent = '上传中...';
+                widgetDOM.style.color = '#999';
+                widgetDOM.style.fontSize = '13px';
+                return Decoration.widget(pos, widgetDOM, spec);
+              },
+            });
           })
           .use(nord)
           .use(commonmark)
           .use(gfm)
           .use(listener)
+          .use(uploadConfig)
+          .use(uploadPlugin)
           .create();
 
         if (!destroyed) {
@@ -242,6 +302,10 @@ const ArticleEditor: React.FC = () => {
     }
   }, [previewHtml, platform]);
 
+  const handlePendingImage = useCallback((mediaId: number, originalPath: string) => {
+    setPendingImages(prev => [...prev, { mediaId, originalPath }]);
+  }, []);
+
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const files = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
     if (files.length > 0) {
@@ -330,7 +394,7 @@ const ArticleEditor: React.FC = () => {
           />
           <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {editMode === 'wysiwyg' ? (
-              <MilkdownEditor value={content} onChange={setContent} editorContainerRef={editorContainerRef} />
+              <MilkdownEditor value={content} onChange={setContent} editorContainerRef={editorContainerRef} articleId={articleId} onPendingImage={handlePendingImage} />
             ) : (
               <textarea
                 value={content}

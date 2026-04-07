@@ -115,6 +115,7 @@ export interface Media {
   file_size: number | null;
   media_type: 'image' | 'video' | 'audio' | 'other';
   article_id: number | null;
+  article_title: string | null;
   user_id: number;
   created_at: string;
 }

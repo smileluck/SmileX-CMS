@@ -54,3 +54,5 @@ server/uploads/
 build/
 !desktop/build/
 out/
+
+storage

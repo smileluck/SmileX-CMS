@@ -17,13 +17,16 @@ function resolveMediaUrl(url: string): string {
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   const base = apiService.baseURL.replace('/api', '');
   const clean = url.startsWith('./') ? url.slice(2) : url;
+  let resolved: string;
   if (clean.startsWith('articles/') || clean.startsWith('videos/')) {
-    return `${base}/storage-files/${clean}`;
+    resolved = `${base}/storage-files/${clean}`;
+  } else if (clean.startsWith('images/')) {
+    resolved = `${base}/storage-files/${clean}`;
+  } else {
+    resolved = `${base}/${clean}`;
   }
-  if (clean.startsWith('images/')) {
-    return `${base}/storage-files/${clean}`;
-  }
-  return `${base}/${clean}`;
+  const token = localStorage.getItem('token');
+  return token ? `${resolved}?token=${token}` : resolved;
 }
 
 export async function renderMarkdown(md: string): Promise<string> {

@@ -13,7 +13,7 @@ from .plugins.bilibili import BilibiliPlugin
 from .plugins.douyin import DouyinPlugin, DouyinArticlePlugin, DouyinVideoPlugin
 from .plugins.wechat_channels import WeChatChannelsPlugin
 from .config import UPLOADS_DIR, BASE_STORAGE_DIR, CORS_ORIGINS
-from .dependencies import get_current_user
+from .dependencies import get_current_user_for_files
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ def health_check():
 @app.get("/uploads/{file_path:path}")
 async def serve_uploaded_file(
     file_path: str,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_for_files),
 ):
     full_path = (UPLOADS_DIR / file_path).resolve()
     if not full_path.is_relative_to(UPLOADS_DIR.resolve()):
@@ -78,7 +78,7 @@ async def serve_uploaded_file(
 @app.get("/storage-files/{file_path:path}")
 async def serve_storage_file(
     file_path: str,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_for_files),
 ):
     full_path = (BASE_STORAGE_DIR / file_path).resolve()
     if not full_path.is_relative_to(BASE_STORAGE_DIR.resolve()):

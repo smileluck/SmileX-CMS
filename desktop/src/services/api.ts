@@ -219,24 +219,26 @@ class ApiService {
 
   getMediaUrl(filePath: string): string {
     const base = this.baseURL.replace('/api', '');
+    const token = localStorage.getItem('token');
+    const withToken = (url: string) => (token ? `${url}${url.includes('?') ? '&' : '?'}token=${token}` : url);
     if (filePath.startsWith('http')) return filePath;
     if (filePath.startsWith('uploads/')) {
-      return `${base}/${filePath}`;
+      return withToken(`${base}/${filePath}`);
     }
     if (filePath.startsWith('videos/') || filePath.startsWith('articles/')) {
-      return `${base}/storage-files/${filePath}`;
+      return withToken(`${base}/storage-files/${filePath}`);
     }
     if (filePath.startsWith('images/')) {
-      return `${base}/storage-files/${filePath}`;
+      return withToken(`${base}/storage-files/${filePath}`);
     }
     if (filePath.startsWith('./')) {
       const cleaned = filePath.replace(/^\.\//, '');
       if (cleaned.startsWith('images/')) {
-        return `${base}/storage-files/${cleaned}`;
+        return withToken(`${base}/storage-files/${cleaned}`);
       }
-      return `${base}/${cleaned}`;
+      return withToken(`${base}/${cleaned}`);
     }
-    return `${base}/${filePath}`;
+    return withToken(`${base}/${filePath}`);
   }
 
   async getArticlePublishStatus(articleId: number): Promise<Array<{

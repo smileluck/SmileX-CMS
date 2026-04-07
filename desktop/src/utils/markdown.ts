@@ -23,7 +23,7 @@ function resolveMediaUrl(url: string): string {
   } else if (clean.startsWith('images/')) {
     resolved = `${base}/storage-files/${clean}`;
   } else {
-    resolved = `${base}/${clean}`;
+    resolved = `${base}/storage-files/${clean}`;
   }
   const token = localStorage.getItem('token');
   return token ? `${resolved}?token=${token}` : resolved;

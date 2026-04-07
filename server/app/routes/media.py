@@ -1,4 +1,3 @@
-import os
 import shutil
 import logging
 from datetime import datetime, timezone
@@ -12,10 +11,11 @@ from ..models.article import Article
 from ..models.media import Media
 from ..schemas.media import MediaResponse
 from ..snowid import generate_snow_id
-from ..config import UPLOADS_DIR, BASE_STORAGE_DIR, MAX_UPLOAD_SIZE, ALLOWED_EXTENSIONS
+from ..config import BASE_STORAGE_DIR, MAX_UPLOAD_SIZE, ALLOWED_EXTENSIONS
 from ..routes.settings import (
     get_articles_dir as _get_articles_dir,
     get_videos_dir as _get_videos_dir,
+    get_media_dir as _get_media_dir,
     _get_base_storage_dir,
 )
 from ..dependencies import get_current_user
@@ -71,7 +71,8 @@ async def upload_file(
 
     snow_id = generate_snow_id()
     safe_filename = f"{snow_id}{ext}"
-    file_path = UPLOADS_DIR / safe_filename
+    media_dir = _get_media_dir(db, current_user.id)
+    file_path = media_dir / safe_filename
 
     try:
         file_path.write_bytes(content)
@@ -99,10 +100,12 @@ async def upload_file(
         str(file_path),
     )
 
+    relative_path = str(file_path.relative_to(BASE_STORAGE_DIR))
+
     db_media = Media(
         snow_id=snow_id,
         filename=filename,
-        file_path=f"uploads/{safe_filename}",
+        file_path=relative_path,
         file_type=mime_type,
         file_size=len(content),
         media_type=media_type,
@@ -113,9 +116,9 @@ async def upload_file(
     db.refresh(db_media)
 
     logger.info(
-        "Media record created: snow_id=%s, db_file_path=uploads/%s, user_id=%d",
+        "Media record created: snow_id=%s, db_file_path=%s, user_id=%d",
         snow_id,
-        safe_filename,
+        relative_path,
         current_user.id,
     )
 
@@ -310,16 +313,9 @@ def delete_media_file(
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
 
-    if media.article_id:
-        article = db.query(Article).filter(Article.id == media.article_id).first()
-        if article:
-            file_path = BASE_STORAGE_DIR / media.file_path
-        else:
-            file_path = Path(media.file_path)
-    else:
-        file_path = Path(media.file_path)
-        if not file_path.is_absolute():
-            file_path = UPLOADS_DIR / file_path
+    file_path = Path(media.file_path)
+    if not file_path.is_absolute():
+        file_path = BASE_STORAGE_DIR / file_path
 
     if file_path.exists():
         try:

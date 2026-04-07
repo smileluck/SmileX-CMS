@@ -10,7 +10,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'cas.db'}")
 
 BASE_STORAGE_DIR = Path(os.getenv("BASE_STORAGE_DIR", str(BASE_DIR / "storage")))
-UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(BASE_DIR / "uploads")))
 
 ARTICLES_DIR = BASE_STORAGE_DIR / "articles"
 VIDEOS_DIR = BASE_STORAGE_DIR / "videos"
@@ -54,5 +53,5 @@ ALLOWED_EXTENSIONS = {
     ".docx",
 }
 
-for d in [BASE_STORAGE_DIR, ARTICLES_DIR, VIDEOS_DIR, UPLOADS_DIR]:
+for d in [BASE_STORAGE_DIR, ARTICLES_DIR, VIDEOS_DIR]:
     d.mkdir(parents=True, exist_ok=True)

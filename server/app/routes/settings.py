@@ -53,6 +53,13 @@ def get_videos_dir(db: Session, user_id: int) -> Path:
     return videos_dir
 
 
+def get_media_dir(db: Session, user_id: int) -> Path:
+    base = _get_base_storage_dir(db, user_id)
+    media_dir = base / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    return media_dir
+
+
 @router.get("", response_model=SettingsResponse)
 def get_settings(
     current_user: User = Depends(get_current_user),

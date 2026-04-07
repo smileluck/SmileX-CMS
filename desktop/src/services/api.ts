@@ -222,9 +222,6 @@ class ApiService {
     const token = localStorage.getItem('token');
     const withToken = (url: string) => (token ? `${url}${url.includes('?') ? '&' : '?'}token=${token}` : url);
     if (filePath.startsWith('http')) return filePath;
-    if (filePath.startsWith('uploads/')) {
-      return withToken(`${base}/${filePath}`);
-    }
     if (filePath.startsWith('videos/') || filePath.startsWith('articles/')) {
       return withToken(`${base}/storage-files/${filePath}`);
     }
@@ -233,12 +230,12 @@ class ApiService {
     }
     if (filePath.startsWith('./')) {
       const cleaned = filePath.replace(/^\.\//, '');
-      if (cleaned.startsWith('images/')) {
+      if (cleaned.startsWith('images/') || cleaned.startsWith('articles/') || cleaned.startsWith('videos/')) {
         return withToken(`${base}/storage-files/${cleaned}`);
       }
       return withToken(`${base}/${cleaned}`);
     }
-    return withToken(`${base}/${filePath}`);
+    return withToken(`${base}/storage-files/${filePath}`);
   }
 
   async getArticlePublishStatus(articleId: number): Promise<Array<{

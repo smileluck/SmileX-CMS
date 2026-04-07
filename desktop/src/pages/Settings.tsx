@@ -31,19 +31,18 @@ const Settings: React.FC = () => {
   }, [form]);
 
   const onFinish = async (values: { apiUrl: string; menuLayout: string; base_storage_path?: string }) => {
-    const url = values.apiUrl.replace(/\/$/, '') + '/api';
-    apiService.setBaseURL(url);
+    const url = values.apiUrl.trim().replace(/\/$/, '') + '/api';
     localStorage.setItem('menuLayout', values.menuLayout);
 
     try {
       const settings: Record<string, string> = {};
-      if (values.base_storage_path) settings.base_storage_path = values.base_storage_path;
-      if (Object.keys(settings).length > 0) {
-        await apiService.updateSettings(settings);
-      }
+      settings.base_storage_path = values.base_storage_path?.trim() || '';
+      await apiService.updateSettings(settings);
+      apiService.setBaseURL(url);
       message.success('设置已保存');
-    } catch {
-      message.error('保存失败，请检查后端连接');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      message.error(detail || '保存失败，请检查后端连接');
     }
   };
 

@@ -181,12 +181,14 @@ const ArticleEditor: React.FC = () => {
   }, [navigate, articleId, title]);
 
   const handleImageUpload = useCallback(async (file: File) => {
-    if (!articleId) {
+    let uploadId = articleId;
+    if (!uploadId) {
       const result = await doSave(true);
       if (!result) return;
+      uploadId = result.id;
     }
     try {
-      const media = await apiService.uploadToArticle(articleId!, file);
+      const media = await apiService.uploadToArticle(uploadId!, file);
       const imgMd = `![${file.name}](./${media.file_path})`;
       setContent(prev => prev + '\n' + imgMd);
       message.success('图片上传成功');
@@ -288,7 +290,7 @@ const ArticleEditor: React.FC = () => {
             placeholder="选择标签"
             style={{ width: '100%', minWidth: 240 }}
             options={allTags.map(t => ({ label: t.name, value: t.id }))}
-            dropdownRender={(menu) => (
+            popupRender={(menu) => (
               <>
                 {menu}
                 <div style={{ padding: '4px 8px', borderTop: '1px solid #f0f0f0' }}>

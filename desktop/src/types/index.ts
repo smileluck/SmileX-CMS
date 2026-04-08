@@ -28,6 +28,7 @@ export interface Tag {
   color: string | null;
   user_id: number;
   article_count: number;
+  video_count: number;
   created_at: string;
 }
 

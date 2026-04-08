@@ -30,18 +30,32 @@ def get_tags(
         .subquery()
     )
 
+    video_count_subq = (
+        db.query(
+            ArticleTag.tag_id,
+            func.count(ArticleTag.article_id).label("video_count"),
+        )
+        .join(Article, Article.id == ArticleTag.article_id)
+        .filter(Article.article_type == "video")
+        .group_by(ArticleTag.tag_id)
+        .subquery()
+    )
+
     tags = (
         db.query(
-            Tag, func.coalesce(count_subq.c.article_count, 0).label("article_count")
+            Tag,
+            func.coalesce(count_subq.c.article_count, 0).label("article_count"),
+            func.coalesce(video_count_subq.c.video_count, 0).label("video_count"),
         )
         .outerjoin(count_subq, Tag.id == count_subq.c.tag_id)
+        .outerjoin(video_count_subq, Tag.id == video_count_subq.c.tag_id)
         .filter(Tag.user_id == current_user.id)
         .order_by(Tag.name)
         .all()
     )
 
     result = []
-    for tag, article_count in tags:
+    for tag, article_count, video_count in tags:
         result.append(
             TagResponse(
                 id=tag.id,
@@ -49,6 +63,7 @@ def get_tags(
                 color=tag.color,
                 user_id=tag.user_id,
                 article_count=article_count,
+                video_count=video_count,
                 created_at=tag.created_at,
             )
         )
@@ -86,6 +101,7 @@ def create_tag(
         color=db_tag.color,
         user_id=db_tag.user_id,
         article_count=0,
+        video_count=0,
         created_at=db_tag.created_at,
     )
 
@@ -129,12 +145,21 @@ def update_tag(
         or 0
     )
 
+    video_count = (
+        db.query(func.count(ArticleTag.article_id))
+        .join(Article, Article.id == ArticleTag.article_id)
+        .filter(ArticleTag.tag_id == tag.id, Article.article_type == "video")
+        .scalar()
+        or 0
+    )
+
     return TagResponse(
         id=tag.id,
         name=tag.name,
         color=tag.color,
         user_id=tag.user_id,
         article_count=article_count,
+        video_count=video_count,
         created_at=tag.created_at,
     )
 

@@ -64,6 +64,7 @@ const AppContent: React.FC = () => (
       <Route path="/articles/:id/edit" element={<PrivateRoute><Layout><ArticleEditor /></Layout></PrivateRoute>} />
       <Route path="/videos" element={<PrivateRoute><Layout><VideoList /></Layout></PrivateRoute>} />
       <Route path="/videos/new" element={<PrivateRoute><Layout><VideoEditor /></Layout></PrivateRoute>} />
+      <Route path="/videos/:id/edit" element={<PrivateRoute><Layout><VideoEditor /></Layout></PrivateRoute>} />
       <Route path="/media" element={<PrivateRoute><Layout><MediaLibrary /></Layout></PrivateRoute>} />
       <Route path="/tags" element={<PrivateRoute><Layout><TagManager /></Layout></PrivateRoute>} />
       <Route path="/platforms" element={<PrivateRoute><Layout><PlatformManager /></Layout></PrivateRoute>} />

@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Table, Tag, Space, message } from 'antd';
-import { PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { Button, Table, Tag, Space, message, Modal } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
-import { fetchArticles } from '../store/articleSlice';
+import { fetchArticles, deleteArticle } from '../store/articleSlice';
 
 const VideoList: React.FC = () => {
   const navigate = useNavigate();
@@ -15,6 +15,21 @@ const VideoList: React.FC = () => {
   useEffect(() => {
     dispatch(fetchArticles({ article_type: 'video' }));
   }, [dispatch]);
+
+  const handleDelete = (id: number) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: '确定要删除这个视频吗？',
+      onOk: async () => {
+        try {
+          await dispatch(deleteArticle(id)).unwrap();
+          message.success('删除成功');
+        } catch {
+          message.error('删除失败');
+        }
+      },
+    });
+  };
 
   const columns = [
     { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
@@ -35,9 +50,12 @@ const VideoList: React.FC = () => {
       render: (t: string) => t ? new Date(t).toLocaleString() : '-',
     },
     {
-      title: '操作', key: 'action', width: 100,
+      title: '操作', key: 'action', width: 150,
       render: (_: any, record: any) => (
-        <Button size="small" icon={<EditOutlined />} onClick={() => navigate(`/videos/${record.id}/edit`)}>编辑</Button>
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => navigate(`/videos/${record.id}/edit`)}>编辑</Button>
+          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
+        </Space>
       ),
     },
   ];

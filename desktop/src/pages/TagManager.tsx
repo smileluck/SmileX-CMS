@@ -106,6 +106,13 @@ const TagManager: React.FC = () => {
       sorter: (a: TagType, b: TagType) => a.article_count - b.article_count,
     },
     {
+      title: '视频数',
+      dataIndex: 'video_count',
+      key: 'video_count',
+      width: 100,
+      sorter: (a: TagType, b: TagType) => a.video_count - b.video_count,
+    },
+    {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',

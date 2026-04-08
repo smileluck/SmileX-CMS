@@ -19,6 +19,7 @@ class TagResponse(BaseModel):
     color: Optional[str] = None
     user_id: int
     article_count: int = 0
+    video_count: int = 0
     created_at: datetime
 
     class Config:

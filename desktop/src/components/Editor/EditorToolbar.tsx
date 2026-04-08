@@ -1,5 +1,5 @@
-import React, { useCallback, useRef } from 'react';
-import { Button, Tooltip, Upload, Dropdown, Space } from 'antd';
+import React, { useCallback } from 'react';
+import { Button, Tooltip, Upload, Dropdown, Space, Popover } from 'antd';
 import {
   BoldOutlined,
   ItalicOutlined,
@@ -17,15 +17,24 @@ import {
   TableOutlined,
   EditOutlined,
   FileTextOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
+import type { HistoryEntry } from '../../hooks/useHistory';
 
 interface EditorToolbarProps {
-  onInsertMarkdown: (before: string, after?: string, placeholder?: string) => void;
+  onInsertMarkdown: (before: string, after?: string, placeholder?: string, block?: boolean, description?: string) => void;
   onImageUpload: (file: File) => void;
   editorReady: boolean;
   editMode?: 'wysiwyg' | 'markdown';
   onToggleEditMode?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  history?: HistoryEntry[];
+  currentIndex?: number;
+  onJumpTo?: (index: number) => void;
 }
 
 const headingItems: MenuProps['items'] = [
@@ -37,19 +46,34 @@ const headingItems: MenuProps['items'] = [
   { key: '6', label: 'H6 六级标题' },
 ];
 
+function formatTimeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 5000) return '刚刚';
+  if (diff < 60000) return `${Math.floor(diff / 1000)}秒前`;
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
+  return `${Math.floor(diff / 3600000)}小时前`;
+}
+
 const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onInsertMarkdown,
   onImageUpload,
   editorReady,
   editMode = 'wysiwyg',
   onToggleEditMode,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
+  history = [],
+  currentIndex = 0,
+  onJumpTo,
 }) => {
   const disabled = !editorReady;
 
   const handleHeading = useCallback(({ key }: { key: string }) => {
     const level = parseInt(key);
     const prefix = '#'.repeat(level) + ' ';
-    onInsertMarkdown(prefix, '', '标题');
+    onInsertMarkdown(prefix, '', '标题', true, `插入 H${level} 标题`);
   }, [onInsertMarkdown]);
 
   const ToolBtn = ({
@@ -58,12 +82,16 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
     before,
     after,
     placeholder,
+    block,
+    description,
   }: {
     icon: React.ReactNode;
     label: string;
     before: string;
     after?: string;
     placeholder?: string;
+    block?: boolean;
+    description?: string;
   }) => (
     <Tooltip title={label}>
       <Button
@@ -71,9 +99,42 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
         size="small"
         icon={icon}
         disabled={disabled}
-        onClick={() => onInsertMarkdown(before, after, placeholder)}
+        onClick={() => onInsertMarkdown(before, after, placeholder, block, description)}
       />
     </Tooltip>
+  );
+
+  const historyContent = (
+    <div style={{ maxHeight: 320, overflowY: 'auto', minWidth: 200 }}>
+      {[...history].reverse().map((entry, i) => {
+        const idx = history.length - 1 - i;
+        return (
+          <div
+            key={idx}
+            onClick={() => onJumpTo?.(idx)}
+            style={{
+              padding: '4px 8px',
+              cursor: 'pointer',
+              borderRadius: 4,
+              background: idx === currentIndex ? '#e6f4ff' : 'transparent',
+              fontWeight: idx === currentIndex ? 600 : 400,
+              fontSize: 12,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {entry.description}
+            </span>
+            <span style={{ color: '#999', whiteSpace: 'nowrap', fontSize: 11 }}>
+              {formatTimeAgo(entry.timestamp)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -94,16 +155,16 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
       <div style={{ width: 1, height: 16, background: '#e8e8e8', margin: '0 4px' }} />
 
-      <ToolBtn icon={<BoldOutlined />} label="加粗 (Ctrl+B)" before="**" after="**" placeholder="粗体文本" />
-      <ToolBtn icon={<ItalicOutlined />} label="斜体 (Ctrl+I)" before="*" after="*" placeholder="斜体文本" />
-      <ToolBtn icon={<StrikethroughOutlined />} label="删除线" before="~~" after="~~" placeholder="删除线文本" />
-      <ToolBtn icon={<CodeOutlined />} label="行内代码" before="`" after="`" placeholder="code" />
+      <ToolBtn icon={<BoldOutlined />} label="加粗 (Ctrl+B)" before="**" after="**" placeholder="粗体文本" description="加粗" />
+      <ToolBtn icon={<ItalicOutlined />} label="斜体 (Ctrl+I)" before="*" after="*" placeholder="斜体文本" description="斜体" />
+      <ToolBtn icon={<StrikethroughOutlined />} label="删除线" before="~~" after="~~" placeholder="删除线文本" description="删除线" />
+      <ToolBtn icon={<CodeOutlined />} label="行内代码" before="`" after="`" placeholder="code" description="行内代码" />
 
       <div style={{ width: 1, height: 16, background: '#e8e8e8', margin: '0 4px' }} />
 
-      <ToolBtn icon={<UnorderedListOutlined />} label="无序列表" before="- " />
-      <ToolBtn icon={<OrderedListOutlined />} label="有序列表" before="1. " />
-      <ToolBtn icon={<BlockOutlined />} label="引用" before="> " />
+      <ToolBtn icon={<UnorderedListOutlined />} label="无序列表" before="- " block description="无序列表" />
+      <ToolBtn icon={<OrderedListOutlined />} label="有序列表" before="1. " block description="有序列表" />
+      <ToolBtn icon={<BlockOutlined />} label="引用" before="> " block description="引用" />
 
       <div style={{ width: 1, height: 16, background: '#e8e8e8', margin: '0 4px' }} />
 
@@ -113,8 +174,10 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
         before="```\n"
         after="\n```"
         placeholder="code here"
+        block
+        description="代码块"
       />
-      <ToolBtn icon={<LinkOutlined />} label="链接 (Ctrl+K)" before="[" after="](url)" placeholder="链接文本" />
+      <ToolBtn icon={<LinkOutlined />} label="链接 (Ctrl+K)" before="[" after="](url)" placeholder="链接文本" description="链接" />
       <Upload
         accept="image/*"
         showUploadList={false}
@@ -124,8 +187,14 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
           <Button type="text" size="small" icon={<PictureOutlined />} disabled={disabled} />
         </Tooltip>
       </Upload>
-      <ToolBtn icon={<TableOutlined />} label="表格" before="\n| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| " after=" |  |  |\n" placeholder="内容" />
-      <ToolBtn icon={<LineOutlined />} label="分割线" before="\n---\n" />
+      <ToolBtn icon={<TableOutlined />} label="表格" before={
+`
+| 列1 | 列2 | 列3 |
+| --- | --- | --- |
+| `
+} after={` |  |  |
+`} placeholder="内容" block description="表格" />
+      <ToolBtn icon={<LineOutlined />} label="分割线" before="\n---\n" block description="分割线" />
 
       <div style={{ flex: 1 }} />
 
@@ -140,11 +209,16 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
         </Tooltip>
         <div style={{ width: 1, height: 16, background: '#e8e8e8', margin: '0 2px' }} />
         <Tooltip title="撤销 (Ctrl+Z)">
-          <Button type="text" size="small" icon={<UndoOutlined />} disabled={disabled} />
+          <Button type="text" size="small" icon={<UndoOutlined />} disabled={!canUndo} onClick={onUndo} />
         </Tooltip>
         <Tooltip title="重做 (Ctrl+Shift+Z)">
-          <Button type="text" size="small" icon={<RedoOutlined />} disabled={disabled} />
+          <Button type="text" size="small" icon={<RedoOutlined />} disabled={!canRedo} onClick={onRedo} />
         </Tooltip>
+        <Popover content={historyContent} title="操作历史" trigger="click" placement="bottomRight">
+          <Tooltip title="操作历史">
+            <Button type="text" size="small" icon={<HistoryOutlined />} disabled={history.length <= 1} />
+          </Tooltip>
+        </Popover>
       </Space>
     </div>
   );

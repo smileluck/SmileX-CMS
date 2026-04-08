@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Input, Button, Space, Select, message, Spin, Upload, Tooltip, Form, Radio, Switch, Tag } from 'antd';
+import { Input, Button, Space, Select, message, Spin, Tooltip, Radio, Switch } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, SendOutlined, CopyOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
@@ -10,11 +10,11 @@ import { apiService } from '../services/api';
 import { renderMarkdown } from '../utils/markdown';
 import { inlineStyles } from '../utils/inlineStyles';
 import { useAutoSave } from '../utils/useAutoSave';
+import { useHistory } from '../hooks/useHistory';
 import PublishModal from '../components/PublishModal';
 import EditorToolbar from '../components/Editor/EditorToolbar';
 import PlatformPreview from '../components/Preview/PlatformPreview';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
-import type { Media } from '../types';
 
 const MilkdownEditor: React.FC<{
   value: string;
@@ -171,7 +171,7 @@ const ArticleEditor: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { tags: allTags } = useSelector((state: RootState) => state.tag);
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [content, setContentRaw] = useState('');
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id);
@@ -186,6 +186,17 @@ const ArticleEditor: React.FC = () => {
   const [articleFilePath, setArticleFilePath] = useState<string | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
+  const historyManager = useHistory('');
+  const setContent = useCallback((valueOrUpdater: string | ((prev: string) => string), description: string = '编辑内容') => {
+    setContentRaw(prev => {
+      const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(prev) : valueOrUpdater;
+      if (next !== prev) {
+        historyManager.pushState(next, description);
+      }
+      return next;
+    });
+  }, [historyManager]);
+
   useEffect(() => {
     dispatch(fetchTags());
   }, [dispatch]);
@@ -196,7 +207,8 @@ const ArticleEditor: React.FC = () => {
     apiService.getArticleById(Number(id)).then(article => {
       if (cancelled) return;
       setTitle(article.title);
-      setContent(article.content);
+      setContentRaw(article.content);
+      historyManager.pushState(article.content, '加载文章');
       setTagIds(article.tag_objects?.map(t => t.id) || []);
       setArticleFilePath(article.file_path);
       setLoading(false);
@@ -250,13 +262,14 @@ const ArticleEditor: React.FC = () => {
           await dispatch(updateArticle({ id: result.id, data: { title, content: updatedContent, tag_ids: tagIds } })).unwrap();
         }
       }
+      historyManager.clearHistory();
       return result;
     } catch {
       return null;
     } finally {
       setSaving(false);
     }
-  }, [articleId, title, content, tagIds, dispatch, navigate, pendingImages]);
+  }, [articleId, title, content, tagIds, dispatch, navigate, pendingImages, historyManager]);
 
   const autoSaveFn = useCallback(async () => {
     if (!title.trim() || !articleId) return;
@@ -291,23 +304,28 @@ const ArticleEditor: React.FC = () => {
         const media = await apiService.uploadToArticle(articleId, file);
         const imgPath = media.markdown_path || `images/${media.file_path.split('/').pop()}`;
         const imgMd = `![${file.name}](./${imgPath})`;
-        setContent(prev => prev + '\n' + imgMd);
+        setContent(prev => prev + '\n' + imgMd, '插入图片');
       } else {
         const media = await apiService.uploadFile(file);
         const imgMd = `![${file.name}](${media.file_path})`;
         setPendingImages(prev => [...prev, { mediaId: media.id, originalPath: media.file_path }]);
-        setContent(prev => prev + '\n' + imgMd);
+        setContent(prev => prev + '\n' + imgMd, '插入图片');
       }
       message.success('图片上传成功');
     } catch {
       message.error('图片上传失败');
     }
-  }, [articleId]);
+  }, [articleId, setContent]);
 
-  const handleInsertMarkdown = useCallback((before: string, after: string = '', placeholder: string = '') => {
-    const insertion = before + (placeholder || '') + (after || '');
-    setContent(prev => prev + insertion);
-  }, []);
+  const handleInsertMarkdown = useCallback((before: string, after: string = '', placeholder: string = '', block: boolean = false, description: string = '插入内容') => {
+    setContent(prev => {
+      let base = prev;
+      if (block && base.length > 0 && !base.endsWith('\n')) {
+        base = base + '\n';
+      }
+      return base + before + (placeholder || '') + (after || '');
+    }, description);
+  }, [setContent]);
 
   const handleCopyRichText = useCallback(async () => {
     if (!previewHtml) {
@@ -330,6 +348,21 @@ const ArticleEditor: React.FC = () => {
       message.error('复制失败，请检查浏览器权限');
     }
   }, [previewHtml, platform]);
+
+  const handleUndo = useCallback(() => {
+    const prev = historyManager.undo();
+    if (prev !== null) setContentRaw(prev);
+  }, [historyManager]);
+
+  const handleRedo = useCallback(() => {
+    const next = historyManager.redo();
+    if (next !== null) setContentRaw(next);
+  }, [historyManager]);
+
+  const handleJumpTo = useCallback((index: number) => {
+    const target = historyManager.jumpTo(index);
+    if (target !== null) setContentRaw(target);
+  }, [historyManager]);
 
   const handlePendingImage = useCallback((mediaId: number, originalPath: string) => {
     setPendingImages(prev => [...prev, { mediaId, originalPath }]);
@@ -389,45 +422,63 @@ const ArticleEditor: React.FC = () => {
           <Button type="primary" icon={<SendOutlined />} onClick={handlePublish} loading={saving}>发布</Button>
         </Space>
       </div>
-      <Form layout="inline" style={{ marginBottom: 8, gap: 12, flexWrap: 'wrap' }}>
-        <Form.Item label="标题" style={{ marginBottom: 0, flex: '1 1 300px', maxWidth: 500 }}>
-          <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="请输入标题" size="large" />
-        </Form.Item>
-        <Form.Item label="标签" style={{ marginBottom: 0, flex: '1 1 240px' }}>
-          <Select
-            mode="multiple"
-            value={tagIds}
-            onChange={setTagIds}
-            placeholder="选择标签"
-            style={{ width: '100%', minWidth: 240 }}
-            options={allTags.map(t => ({ label: t.name, value: t.id }))}
-            popupRender={(menu) => (
-              <>
-                {menu}
-                <div style={{ padding: '4px 8px', borderTop: '1px solid #f0f0f0' }}>
-                  <a href="/tags" style={{ fontSize: 12 }}>管理标签</a>
-                </div>
-              </>
-            )}
-          />
-        </Form.Item>
-      </Form>
       <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>
         <div style={{ flex: 1, border: '1px solid #d9d9d9', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '6px 12px',
+            borderBottom: '1px solid #f0f0f0',
+            background: '#fafafa',
+          }}>
+            <Input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="请输入标题"
+              variant="borderless"
+              style={{ flex: '1 1 200px', fontWeight: 500 }}
+            />
+            <Select
+              mode="multiple"
+              maxCount={5}
+              value={tagIds}
+              onChange={setTagIds}
+              placeholder="选择标签（最多5个）"
+              variant="borderless"
+              style={{ flex: '0 1 280px', minWidth: 160 }}
+              options={allTags.map(t => ({ label: t.name, value: t.id }))}
+              popupRender={(menu) => (
+                <>
+                  {menu}
+                  <div style={{ padding: '4px 8px', borderTop: '1px solid #f0f0f0' }}>
+                    <a href="/tags" style={{ fontSize: 12 }}>管理标签</a>
+                  </div>
+                </>
+              )}
+            />
+          </div>
           <EditorToolbar
             onInsertMarkdown={handleInsertMarkdown}
             onImageUpload={handleImageUpload}
             editorReady={editorReady}
             editMode={editMode}
             onToggleEditMode={() => setEditMode(m => m === 'wysiwyg' ? 'markdown' : 'wysiwyg')}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={historyManager.canUndo}
+            canRedo={historyManager.canRedo}
+            history={historyManager.history}
+            currentIndex={historyManager.currentIndex}
+            onJumpTo={handleJumpTo}
           />
           <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {editMode === 'wysiwyg' ? (
-              <MilkdownEditor value={content} onChange={setContent} editorContainerRef={editorContainerRef} articleId={articleId} articleFilePath={articleFilePath} onPendingImage={handlePendingImage} />
+              <MilkdownEditor value={content} onChange={(val) => setContent(val, '编辑内容')} editorContainerRef={editorContainerRef} articleId={articleId} articleFilePath={articleFilePath} onPendingImage={handlePendingImage} />
             ) : (
               <textarea
                 value={content}
-                onChange={e => setContent(e.target.value)}
+                onChange={e => setContent(e.target.value, '输入文本')}
                 style={{
                   width: '100%',
                   height: '100%',

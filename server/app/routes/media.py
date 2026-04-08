@@ -168,7 +168,8 @@ async def upload_to_article(
 
     content_dir = _get_content_dir(article.article_type, db, current_user.id)
     relative_path = (
-        article_dir.relative_to(BASE_STORAGE_DIR).as_posix() + f"/images/{safe_filename}"
+        article_dir.relative_to(BASE_STORAGE_DIR).as_posix()
+        + f"/images/{safe_filename}"
     )
     markdown_path = f"images/{safe_filename}"
 
@@ -267,7 +268,8 @@ def copy_media_to_article(
         raise HTTPException(status_code=500, detail="Failed to copy file")
 
     relative_path = (
-        article_dir.relative_to(BASE_STORAGE_DIR).as_posix() + f"/images/{safe_filename}"
+        article_dir.relative_to(BASE_STORAGE_DIR).as_posix()
+        + f"/images/{safe_filename}"
     )
     markdown_path = f"images/{safe_filename}"
 
@@ -306,7 +308,7 @@ def get_media_files(
         q = q.filter(Media.media_type == media_type)
     if article_id:
         q = q.filter(Media.article_id == article_id)
-    return q.order_by(Media.created_at.desc()).offset(skip).limit(limit).unique().all()
+    return q.order_by(Media.created_at.desc()).offset(skip).limit(limit).all()
 
 
 @router.delete("/{media_id}", status_code=status.HTTP_204_NO_CONTENT)

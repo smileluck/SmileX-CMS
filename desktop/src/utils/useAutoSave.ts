@@ -2,12 +2,20 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+function formatTime(date: Date): string {
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  const s = String(date.getSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
 export function useAutoSave(
   saveFn: () => Promise<void>,
   data: string,
   intervalMs: number = 30000,
 ) {
   const [status, setStatus] = useState<SaveStatus>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const lastSavedRef = useRef(data);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const saveFnRef = useRef(saveFn);
@@ -22,10 +30,17 @@ export function useAutoSave(
       setStatus('saving');
       await saveFnRef.current();
       lastSavedRef.current = data;
+      setLastSavedAt(new Date());
       setStatus('saved');
     } catch {
       setStatus('error');
     }
+  }, [data]);
+
+  const markSaved = useCallback(() => {
+    lastSavedRef.current = data;
+    setLastSavedAt(new Date());
+    setStatus('saved');
   }, [data]);
 
   useEffect(() => {
@@ -51,5 +66,7 @@ export function useAutoSave(
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [data, save]);
 
-  return { status, save };
+  const lastSavedAtFormatted = lastSavedAt ? formatTime(lastSavedAt) : null;
+
+  return { status, save, lastSavedAt, lastSavedAtFormatted, markSaved };
 }

@@ -162,7 +162,7 @@ const MilkdownEditor: React.FC<{
     }
   }, [editorContainerRef]);
 
-  return <div ref={refCallback} style={{ height: '100%', overflow: 'auto' }} />;
+  return <div ref={refCallback} style={{ height: '100%', overflow: 'hidden' }} />;
 };
 
 const ArticleEditor: React.FC = () => {
@@ -185,6 +185,7 @@ const ArticleEditor: React.FC = () => {
   const [pendingImages, setPendingImages] = useState<{ mediaId: number; originalPath: string }[]>([]);
   const [articleFilePath, setArticleFilePath] = useState<string | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const markSavedRef = useRef<(() => void) | null>(null);
 
   const historyManager = useHistory('');
   const setContent = useCallback((valueOrUpdater: string | ((prev: string) => string), description: string = '编辑内容') => {
@@ -229,6 +230,18 @@ const ArticleEditor: React.FC = () => {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [content, articleFilePath]);
 
+  const autoSaveFn = useCallback(async () => {
+    if (!title.trim() || !articleId) return;
+    const data: any = { title, content, tag_ids: tagIds };
+    try {
+      await dispatch(updateArticle({ id: articleId, data })).unwrap();
+    } catch {}
+  }, [title, articleId, content, tagIds, dispatch]);
+
+  const { status: autoSaveStatus, lastSavedAtFormatted, markSaved } = useAutoSave(autoSaveFn, content + title, 30000);
+
+  useEffect(() => { markSavedRef.current = markSaved; }, [markSaved]);
+
   const doSave = useCallback(async (shouldNavigate: boolean = false) => {
     if (!title.trim()) { message.warning('请输入标题'); return null; }
     setSaving(true);
@@ -263,6 +276,7 @@ const ArticleEditor: React.FC = () => {
         }
       }
       historyManager.clearHistory();
+      markSavedRef.current?.();
       return result;
     } catch {
       return null;
@@ -270,13 +284,6 @@ const ArticleEditor: React.FC = () => {
       setSaving(false);
     }
   }, [articleId, title, content, tagIds, dispatch, navigate, pendingImages, historyManager]);
-
-  const autoSaveFn = useCallback(async () => {
-    if (!title.trim() || !articleId) return;
-    await doSave(false);
-  }, [doSave, title, articleId]);
-
-  const { status: autoSaveStatus } = useAutoSave(autoSaveFn, content + title, 30000);
 
   const handleSaveAndGo = useCallback(async () => {
     const result = await doSave(true);
@@ -401,23 +408,21 @@ const ArticleEditor: React.FC = () => {
 
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
 
-  const autoSaveLabel = autoSaveStatus === 'saving' ? '保存中...' :
-    autoSaveStatus === 'saved' ? '已自动保存' :
-    autoSaveStatus === 'error' ? '自动保存失败' : '';
-
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }} onPaste={handlePaste} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', gap: 8 }}>
         <Space>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/articles')}>返回</Button>
-          {autoSaveLabel && (
-            <span style={{ fontSize: 12, color: autoSaveStatus === 'error' ? '#ff4d4f' : '#999' }}>{autoSaveLabel}</span>
-          )}
         </Space>
         <Space>
           <Button icon={<CopyOutlined />} onClick={handleCopyRichText} disabled={!previewHtml}>
             复制富文本
           </Button>
+          {autoSaveStatus === 'saving' ? (
+            <span style={{ fontSize: 12, color: '#999' }}>保存中...</span>
+          ) : lastSavedAtFormatted ? (
+            <span style={{ fontSize: 12, color: '#999' }}>最后保存 {lastSavedAtFormatted}</span>
+          ) : null}
           <Button icon={<SaveOutlined />} onClick={handleSaveAndGo} loading={saving}>保存</Button>
           <Button type="primary" icon={<SendOutlined />} onClick={handlePublish} loading={saving}>发布</Button>
         </Space>

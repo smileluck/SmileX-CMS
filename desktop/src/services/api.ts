@@ -11,7 +11,7 @@ import type {
 
 const getBaseURL = (): string => {
   const stored = localStorage.getItem('apiUrl');
-  return stored || 'http://localhost:8000/api';
+  return stored || (import.meta.env.DEV ? '/api' : 'http://localhost:8000/api');
 };
 
 class ApiService {

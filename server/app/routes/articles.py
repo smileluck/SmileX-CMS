@@ -125,7 +125,7 @@ def create_article(
         group_id=article.group_id,
         tags=article.tags or [],
         author_id=current_user.id,
-        file_path=str(article_dir.relative_to(BASE_STORAGE_DIR)),
+        file_path=article_dir.relative_to(BASE_STORAGE_DIR).as_posix(),
     )
     db.add(db_article)
     db.flush()
@@ -261,7 +261,7 @@ def update_article(
         if old_dir.exists() and old_dir != new_dir:
             try:
                 old_dir.rename(new_dir)
-                article.file_path = str(new_dir.relative_to(BASE_STORAGE_DIR))
+                article.file_path = new_dir.relative_to(BASE_STORAGE_DIR).as_posix()
             except OSError as e:
                 logger.warning("Failed to rename article directory: %s", e)
 
@@ -349,7 +349,7 @@ def duplicate_article(
         tags=article.tags,
         metadata=article.article_metadata,
         author_id=current_user.id,
-        file_path=str(article_dir.relative_to(BASE_STORAGE_DIR)),
+        file_path=article_dir.relative_to(BASE_STORAGE_DIR).as_posix(),
     )
     db.add(new_article)
     db.flush()

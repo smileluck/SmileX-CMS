@@ -8,6 +8,7 @@ class MediaResponse(BaseModel):
     snow_id: str
     filename: str
     file_path: str
+    markdown_path: Optional[str] = None
     file_type: Optional[str] = None
     file_size: Optional[int] = None
     media_type: str = "image"

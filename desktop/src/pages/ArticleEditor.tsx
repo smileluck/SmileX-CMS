@@ -21,18 +21,21 @@ const MilkdownEditor: React.FC<{
   onChange: (val: string) => void;
   editorContainerRef?: React.RefObject<HTMLDivElement | null>;
   articleId: number | null;
+  articleFilePath?: string | null;
   onPendingImage?: (mediaId: number, originalPath: string) => void;
-}> = ({ value, onChange, editorContainerRef, articleId, onPendingImage }) => {
+}> = ({ value, onChange, editorContainerRef, articleId, articleFilePath, onPendingImage }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const editorInstanceRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   const valueRef = useRef(value);
   const articleIdRef = useRef(articleId);
+  const articleFilePathRef = useRef(articleFilePath);
   const onPendingImageRef = useRef(onPendingImage);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { valueRef.current = value; }, [value]);
   useEffect(() => { articleIdRef.current = articleId; }, [articleId]);
+  useEffect(() => { articleFilePathRef.current = articleFilePath; }, [articleFilePath]);
   useEffect(() => { onPendingImageRef.current = onPendingImage; }, [onPendingImage]);
 
   useEffect(() => {
@@ -96,9 +99,28 @@ const MilkdownEditor: React.FC<{
         const editor = await Editor.make()
           .config((ctx) => {
             ctx.set(rootCtx, editorRef.current);
-            ctx.set(defaultValueCtx, valueRef.current);
+            // Preprocess: convert ./images/xxx.png to full URLs for display in editor
+            let displayValue = valueRef.current;
+            const storagePath = articleFilePathRef.current;
+            if (storagePath) {
+              displayValue = displayValue.replace(
+                /!\[([^\]]*)\]\(\.\/images\/([^)]+)\)/g,
+                (_match: string, alt: string, filename: string) => {
+                  return `![${alt}](${apiService.getMediaUrl(`images/${filename}`, storagePath)})`;
+                }
+              );
+            }
+            ctx.set(defaultValueCtx, displayValue);
             ctx.get(listenerCtx).markdownUpdated((ctx, markdown) => {
-              onChangeRef.current(markdown);
+              // Convert full storage URLs back to ./images/xxx.png for storage
+              let processed = markdown;
+              processed = processed.replace(
+                /!\[([^\]]*)\]\([^)]*\/storage-files\/[^)]*\/(images\/[^/?)]+)(?:\?[^)]*)?\)/g,
+                (_match: string, alt: string, imgPath: string) => {
+                  return `![${alt}](./${imgPath})`;
+                }
+              );
+              onChangeRef.current(processed);
             });
             ctx.set(uploadConfig.key, {
               uploader: customUploader,
@@ -161,6 +183,7 @@ const ArticleEditor: React.FC = () => {
   const [editorReady, setEditorReady] = useState(true);
   const [editMode, setEditMode] = useState<'wysiwyg' | 'markdown'>('markdown');
   const [pendingImages, setPendingImages] = useState<{ mediaId: number; originalPath: string }[]>([]);
+  const [articleFilePath, setArticleFilePath] = useState<string | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -175,6 +198,7 @@ const ArticleEditor: React.FC = () => {
       setTitle(article.title);
       setContent(article.content);
       setTagIds(article.tag_objects?.map(t => t.id) || []);
+      setArticleFilePath(article.file_path);
       setLoading(false);
     }).catch(() => {
       if (cancelled) return;
@@ -187,11 +211,11 @@ const ArticleEditor: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(async () => {
-      const html = await renderMarkdown(content);
+      const html = await renderMarkdown(content, articleFilePath);
       if (!cancelled) setPreviewHtml(html);
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [content]);
+  }, [content, articleFilePath]);
 
   const doSave = useCallback(async (shouldNavigate: boolean = false) => {
     if (!title.trim()) { message.warning('请输入标题'); return null; }
@@ -204,6 +228,9 @@ const ArticleEditor: React.FC = () => {
       } else {
         result = await dispatch(createArticle(data)).unwrap();
         setArticleId(result.id);
+        if (result.file_path) {
+          setArticleFilePath(result.file_path);
+        }
         if (shouldNavigate) {
           navigate(`/articles/${result.id}/edit`, { replace: true });
         }
@@ -212,7 +239,8 @@ const ArticleEditor: React.FC = () => {
           for (const img of pendingImages) {
             try {
               const copied = await apiService.copyMediaToArticle(result.id, img.mediaId);
-              updatedContent = updatedContent.replace(img.originalPath, copied.file_path);
+              const newPath = copied.markdown_path || `images/${copied.file_path.split('/').pop()}`;
+              updatedContent = updatedContent.replace(img.originalPath, `./${newPath}`);
             } catch {
               console.warn('Failed to copy pending image to article', img.mediaId);
             }
@@ -261,7 +289,8 @@ const ArticleEditor: React.FC = () => {
     try {
       if (articleId) {
         const media = await apiService.uploadToArticle(articleId, file);
-        const imgMd = `![${file.name}](./${media.file_path})`;
+        const imgPath = media.markdown_path || `images/${media.file_path.split('/').pop()}`;
+        const imgMd = `![${file.name}](./${imgPath})`;
         setContent(prev => prev + '\n' + imgMd);
       } else {
         const media = await apiService.uploadFile(file);
@@ -394,7 +423,7 @@ const ArticleEditor: React.FC = () => {
           />
           <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {editMode === 'wysiwyg' ? (
-              <MilkdownEditor value={content} onChange={setContent} editorContainerRef={editorContainerRef} articleId={articleId} onPendingImage={handlePendingImage} />
+              <MilkdownEditor value={content} onChange={setContent} editorContainerRef={editorContainerRef} articleId={articleId} articleFilePath={articleFilePath} onPendingImage={handlePendingImage} />
             ) : (
               <textarea
                 value={content}

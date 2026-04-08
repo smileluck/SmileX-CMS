@@ -100,7 +100,7 @@ async def upload_file(
         str(file_path),
     )
 
-    relative_path = str(file_path.relative_to(BASE_STORAGE_DIR))
+    relative_path = file_path.relative_to(BASE_STORAGE_DIR).as_posix()
 
     db_media = Media(
         snow_id=snow_id,
@@ -168,8 +168,9 @@ async def upload_to_article(
 
     content_dir = _get_content_dir(article.article_type, db, current_user.id)
     relative_path = (
-        str(article_dir.relative_to(BASE_STORAGE_DIR)) + f"/images/{safe_filename}"
+        article_dir.relative_to(BASE_STORAGE_DIR).as_posix() + f"/images/{safe_filename}"
     )
+    markdown_path = f"images/{safe_filename}"
 
     mime_type = file.content_type or "application/octet-stream"
     media_type = (
@@ -214,7 +215,9 @@ async def upload_to_article(
         current_user.id,
     )
 
-    return db_media
+    resp = MediaResponse.model_validate(db_media)
+    resp.markdown_path = markdown_path
+    return resp
 
 
 @router.post("/copy-to-article/{article_id}/{media_id}", response_model=MediaResponse)
@@ -264,8 +267,9 @@ def copy_media_to_article(
         raise HTTPException(status_code=500, detail="Failed to copy file")
 
     relative_path = (
-        str(article_dir.relative_to(BASE_STORAGE_DIR)) + f"/images/{safe_filename}"
+        article_dir.relative_to(BASE_STORAGE_DIR).as_posix() + f"/images/{safe_filename}"
     )
+    markdown_path = f"images/{safe_filename}"
 
     media.file_path = relative_path
     media.article_id = article_id
@@ -279,7 +283,9 @@ def copy_media_to_article(
         relative_path,
     )
 
-    return media
+    resp = MediaResponse.model_validate(media)
+    resp.markdown_path = markdown_path
+    return resp
 
 
 @router.get("", response_model=List[MediaResponse])

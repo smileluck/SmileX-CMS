@@ -217,7 +217,7 @@ class ApiService {
     return data;
   }
 
-  getMediaUrl(filePath: string): string {
+  getMediaUrl(filePath: string, articleStoragePath?: string): string {
     const base = this.baseURL.replace('/api', '');
     const token = localStorage.getItem('token');
     const withToken = (url: string) => (token ? `${url}${url.includes('?') ? '&' : '?'}token=${token}` : url);
@@ -226,14 +226,23 @@ class ApiService {
       return withToken(`${base}/storage-files/${filePath}`);
     }
     if (filePath.startsWith('images/')) {
+      if (articleStoragePath) {
+        return withToken(`${base}/storage-files/${articleStoragePath}/${filePath}`);
+      }
       return withToken(`${base}/storage-files/${filePath}`);
     }
     if (filePath.startsWith('./')) {
       const cleaned = filePath.replace(/^\.\//, '');
-      if (cleaned.startsWith('images/') || cleaned.startsWith('articles/') || cleaned.startsWith('videos/')) {
+      if (cleaned.startsWith('images/')) {
+        if (articleStoragePath) {
+          return withToken(`${base}/storage-files/${articleStoragePath}/${cleaned}`);
+        }
         return withToken(`${base}/storage-files/${cleaned}`);
       }
-      return withToken(`${base}/${cleaned}`);
+      if (cleaned.startsWith('articles/') || cleaned.startsWith('videos/')) {
+        return withToken(`${base}/storage-files/${cleaned}`);
+      }
+      return withToken(`${base}/storage-files/${cleaned}`);
     }
     return withToken(`${base}/storage-files/${filePath}`);
   }

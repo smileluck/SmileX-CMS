@@ -111,6 +111,7 @@ export interface Media {
   snow_id: string;
   filename: string;
   file_path: string;
+  markdown_path?: string;
   file_type: string | null;
   file_size: number | null;
   media_type: 'image' | 'video' | 'audio' | 'other';

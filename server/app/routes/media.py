@@ -325,14 +325,28 @@ def delete_media_file(
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
 
-    file_path = Path(media.file_path)
-    if not file_path.is_absolute():
-        file_path = BASE_STORAGE_DIR / file_path
+    if media.article_id is not None:
+        media_dir = _get_media_dir(db, current_user.id)
+        ext = (
+            Path(media.filename).suffix.lower() or Path(media.file_path).suffix.lower()
+        )
+        original_media_file = media_dir / f"{media.snow_id}{ext}"
+        if original_media_file.exists():
+            try:
+                original_media_file.unlink()
+            except OSError as e:
+                logger.warning(
+                    "Failed to delete media file %s: %s", original_media_file, e
+                )
+    else:
+        file_path = Path(media.file_path)
+        if not file_path.is_absolute():
+            file_path = BASE_STORAGE_DIR / file_path
+        if file_path.exists():
+            try:
+                file_path.unlink()
+            except OSError as e:
+                logger.warning("Failed to delete media file %s: %s", file_path, e)
 
-    if media.article_id is None and file_path.exists():
-        try:
-            file_path.unlink()
-        except OSError as e:
-            logger.warning("Failed to delete media file %s: %s", file_path, e)
     db.delete(media)
     db.commit()

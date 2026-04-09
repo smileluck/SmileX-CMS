@@ -1,5 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User
@@ -13,6 +14,10 @@ from ..dependencies import get_current_user
 from ..plugins.registry import PluginRegistry
 
 router = APIRouter(prefix="/api/platforms", tags=["platforms"])
+
+
+class ValidateTokenRequest(BaseModel):
+    access_token: str
 
 
 @router.get("/available")
@@ -133,5 +138,39 @@ async def test_connection(
         raise HTTPException(
             status_code=400, detail=f"No plugin for platform: {account.platform_name}"
         )
-    result = await plugin.test_connection(account)
-    return {"connected": result}
+    result = await plugin.test_connection(account, db=db)
+    db.refresh(account)
+    result["status"] = account.status
+    return result
+
+
+@router.post("/{account_id}/validate-token")
+async def validate_token(
+    account_id: int,
+    body: ValidateTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    account = (
+        db.query(PlatformAccount)
+        .filter(
+            PlatformAccount.id == account_id, PlatformAccount.user_id == current_user.id
+        )
+        .first()
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Platform account not found")
+    plugin = PluginRegistry.get(account.platform_name)
+    if not plugin:
+        raise HTTPException(
+            status_code=400, detail=f"No plugin for platform: {account.platform_name}"
+        )
+    if not hasattr(plugin, "validate_token"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Platform {account.platform_name} does not support token validation",
+        )
+    result = await plugin.validate_token(account, body.access_token, db=db)
+    db.refresh(account)
+    result["status"] = account.status
+    return result

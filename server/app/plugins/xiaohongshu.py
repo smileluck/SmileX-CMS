@@ -13,5 +13,5 @@ class XiaohongshuPlugin(BasePublishPlugin):
             success=False, error_message="Xiaohongshu plugin not yet implemented"
         )
 
-    async def test_connection(self, account) -> bool:
-        return False
+    async def test_connection(self, account, db=None) -> dict:
+        return {"connected": False, "status": "inactive"}

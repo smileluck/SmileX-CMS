@@ -126,6 +126,7 @@ export interface PlatformAccount {
   id: number;
   platform_name: string;
   account_name: string;
+  access_token: string | null;
   status: string;
   token_expires_at: string | null;
   config: Record<string, any> | null;

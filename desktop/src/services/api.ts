@@ -154,8 +154,18 @@ class ApiService {
     return result;
   }
 
-  async testPlatformConnection(id: number): Promise<{ connected: boolean }> {
-    const { data } = await this.client.post<{ connected: boolean }>(`/platforms/${id}/test`);
+  async testPlatformConnection(id: number): Promise<{ connected: boolean; status: string; access_token_saved?: boolean; expires_at?: string; error?: string }> {
+    const { data } = await this.client.post(`/platforms/${id}/test`);
+    return data;
+  }
+
+  async autoTestPlatform(id: number): Promise<{ connected: boolean; status: string; access_token_saved?: boolean; expires_at?: string; error?: string }> {
+    const { data } = await this.client.post(`/platforms/${id}/test`);
+    return data;
+  }
+
+  async validatePlatformToken(id: number, accessToken: string): Promise<{ valid: boolean; status: string; access_token_saved?: boolean; refreshed?: boolean; message?: string; expires_at?: string }> {
+    const { data } = await this.client.post(`/platforms/${id}/validate-token`, { access_token: accessToken });
     return data;
   }
 

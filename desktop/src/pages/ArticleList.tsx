@@ -1,13 +1,14 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Table, Tag, Space, Input, message, Modal, Tooltip, Select } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchArticles, deleteArticle } from '../store/articleSlice';
 import { fetchTags } from '../store/tagSlice';
 import { apiService } from '../services/api';
 import PlatformIcon, { platformNameMap } from '../components/PlatformIcon';
+import PublishModal from '../components/PublishModal';
 import type { ArticlePublishStatus } from '../types';
 
 const statusTagMap: Record<string, { color: string; label: string; icon?: React.ReactNode }> = {
@@ -27,6 +28,8 @@ const ArticleList: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<number | undefined>(undefined);
   const [publishSummary, setPublishSummary] = useState<Record<number, ArticlePublishStatus[]>>({});
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [publishingArticleId, setPublishingArticleId] = useState<number | null>(null);
 
   useEffect(() => {
     dispatch(fetchTags());
@@ -61,6 +64,21 @@ const ArticleList: React.FC = () => {
       },
     });
   };
+
+  const handlePublish = (articleId: number) => {
+    setPublishingArticleId(articleId);
+    setPublishModalOpen(true);
+  };
+
+  const handlePublishSuccess = useCallback(() => {
+    setPublishModalOpen(false);
+    setPublishingArticleId(null);
+    message.success('发布任务已创建');
+    dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId }));
+    apiService.getArticlesPublishSummary()
+      .then(data => setPublishSummary(data))
+      .catch(() => {});
+  }, [dispatch, debouncedSearch, selectedTagId]);
 
   const renderPublishStatus = (articleId: number) => {
     const statuses = publishSummary[articleId];
@@ -127,11 +145,12 @@ const ArticleList: React.FC = () => {
       ),
     },
     {
-      title: '操作', key: 'action', width: 200,
+      title: '操作', key: 'action', width: 240,
       render: (_: any, record: any) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => navigate(`/articles/${record.id}/edit`)}>编辑</Button>
-<Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
+          <Button size="small" type="primary" icon={<SendOutlined />} onClick={() => handlePublish(record.id)}>发布</Button>
+          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
         </Space>
       ),
     },
@@ -157,6 +176,14 @@ const ArticleList: React.FC = () => {
       <div style={{ flex: 1, minHeight: 0 }}>
         <Table columns={columns} dataSource={articles} rowKey="id" loading={isLoading} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }} style={{ height: '100%' }} />
       </div>
+      {publishingArticleId && (
+        <PublishModal
+          open={publishModalOpen}
+          articleId={publishingArticleId}
+          onCancel={() => { setPublishModalOpen(false); setPublishingArticleId(null); }}
+          onSuccess={handlePublishSuccess}
+        />
+      )}
     </div>
   );
 };

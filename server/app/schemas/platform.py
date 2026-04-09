@@ -28,6 +28,7 @@ class PlatformAccountUpdate(BaseModel):
 
 class PlatformAccountResponse(PlatformAccountBase):
     id: int
+    access_token: Optional[str] = None
     status: str = "active"
     token_expires_at: Optional[datetime] = None
     user_id: int

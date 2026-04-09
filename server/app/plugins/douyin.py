@@ -18,8 +18,8 @@ class DouyinPlugin(BasePublishPlugin):
             success=False, error_message="Douyin article plugin not yet implemented"
         )
 
-    async def test_connection(self, account) -> bool:
-        return False
+    async def test_connection(self, account, db=None) -> dict:
+        return {"connected": False, "status": "inactive"}
 
 
 class DouyinArticlePlugin(BasePublishPlugin):
@@ -33,8 +33,8 @@ class DouyinArticlePlugin(BasePublishPlugin):
             success=False, error_message="Douyin article plugin not yet implemented"
         )
 
-    async def test_connection(self, account) -> bool:
-        return False
+    async def test_connection(self, account, db=None) -> dict:
+        return {"connected": False, "status": "inactive"}
 
 
 class DouyinVideoPlugin(BasePublishPlugin):
@@ -48,5 +48,5 @@ class DouyinVideoPlugin(BasePublishPlugin):
             success=False, error_message="Douyin video plugin not yet implemented"
         )
 
-    async def test_connection(self, account) -> bool:
-        return False
+    async def test_connection(self, account, db=None) -> dict:
+        return {"connected": False, "status": "inactive"}

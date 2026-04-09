@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -23,7 +23,7 @@ class BasePublishPlugin(ABC):
         pass
 
     @abstractmethod
-    async def test_connection(self, account) -> bool:
+    async def test_connection(self, account, db=None) -> Dict[str, Any]:
         pass
 
     async def get_auth_url(self) -> str:

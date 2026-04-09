@@ -1,19 +1,20 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Input, Button, Space, Select, message, Spin, Tooltip, Radio, Switch } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, SendOutlined, CopyOutlined } from '@ant-design/icons';
+import { Input, Button, Space, Select, message, Spin, Tooltip, Radio, Switch, Tag } from 'antd';
+import { ArrowLeftOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
 import { createArticle, updateArticle } from '../store/articleSlice';
 import { fetchTags } from '../store/tagSlice';
+import { fetchPlatforms } from '../store/platformSlice';
 import { apiService } from '../services/api';
 import { renderMarkdown } from '../utils/markdown';
 import { inlineStyles } from '../utils/inlineStyles';
 import { useAutoSave } from '../utils/useAutoSave';
 import { useHistory } from '../hooks/useHistory';
-import PublishModal from '../components/PublishModal';
 import EditorToolbar from '../components/Editor/EditorToolbar';
 import PlatformPreview from '../components/Preview/PlatformPreview';
+import PlatformIcon, { platformNameMap } from '../components/PlatformIcon';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
 
 const MilkdownEditor: React.FC<{
@@ -170,13 +171,13 @@ const ArticleEditor: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { tags: allTags } = useSelector((state: RootState) => state.tag);
+  const { accounts: platformAccounts } = useSelector((state: RootState) => state.platform);
   const [title, setTitle] = useState('');
   const [content, setContentRaw] = useState('');
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id);
   const [previewHtml, setPreviewHtml] = useState('');
-  const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [articleId, setArticleId] = useState<number | null>(id ? Number(id) : null);
   const [platform, setPlatform] = useState<PlatformKey>('mobile');
   const [syncScroll, setSyncScroll] = useState(true);
@@ -200,6 +201,7 @@ const ArticleEditor: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchTags());
+    dispatch(fetchPlatforms());
   }, [dispatch]);
 
   useEffect(() => {
@@ -292,18 +294,6 @@ const ArticleEditor: React.FC = () => {
       navigate('/articles/success', { state: { articleId: articleId || result.id, articleTitle: title, action: 'save' } });
     }
   }, [doSave, navigate, articleId, title]);
-
-  const handlePublish = useCallback(async () => {
-    const result = await doSave(true);
-    if (result) {
-      setPublishModalOpen(true);
-    }
-  }, [doSave]);
-
-  const handlePublishComplete = useCallback(() => {
-    setPublishModalOpen(false);
-    navigate('/articles/success', { state: { articleId, articleTitle: title, action: 'publish' } });
-  }, [navigate, articleId, title]);
 
   const handleImageUpload = useCallback(async (file: File) => {
     try {
@@ -424,7 +414,6 @@ const ArticleEditor: React.FC = () => {
             <span style={{ fontSize: 12, color: '#999' }}>最后保存 {lastSavedAtFormatted}</span>
           ) : null}
           <Button icon={<SaveOutlined />} onClick={handleSaveAndGo} loading={saving}>保存</Button>
-          <Button type="primary" icon={<SendOutlined />} onClick={handlePublish} loading={saving}>发布</Button>
         </Space>
       </div>
       <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>
@@ -526,6 +515,29 @@ const ArticleEditor: React.FC = () => {
               <Switch size="small" checked={syncScroll} onChange={setSyncScroll} />
             </Space>
           </div>
+          {(() => {
+            const activePlatforms = platformAccounts.filter(a => a.status === 'active');
+            if (activePlatforms.length === 0) return null;
+            return (
+              <div style={{
+                padding: '4px 12px',
+                borderBottom: '1px solid #f0f0f0',
+                background: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                flexWrap: 'wrap',
+              }}>
+                <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>已配置平台:</span>
+                {activePlatforms.map(a => (
+                  <Tag key={a.id} color="green" style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <PlatformIcon platformName={a.platform_name} size={12} />
+                    {platformNameMap[a.platform_name] || a.platform_name}: {a.account_name}
+                  </Tag>
+                ))}
+              </div>
+            );
+          })()}
           <div style={{ flex: 1, overflow: 'auto', padding: 12, minHeight: 0, display: 'flex', justifyContent: 'center', background: '#f5f5f5' }}>
             <PlatformPreview
               html={previewHtml}
@@ -536,14 +548,6 @@ const ArticleEditor: React.FC = () => {
           </div>
         </div>
       </div>
-      {articleId && (
-        <PublishModal
-          open={publishModalOpen}
-          articleId={articleId}
-          onCancel={() => setPublishModalOpen(false)}
-          onSuccess={handlePublishComplete}
-        />
-      )}
     </div>
   );
 };

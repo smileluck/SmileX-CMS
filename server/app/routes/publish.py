@@ -48,7 +48,7 @@ async def _execute_publish(task_id: int):
         db.add(log)
         db.commit()
 
-        result = await plugin.publish(task.article, task.platform_account, {})
+        result = await plugin.publish(task.article, task.platform_account, {"_db": db})
 
         if result.success:
             task.status = "success"

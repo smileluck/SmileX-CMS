@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Button, Modal, Form, Input, Select, Tag, Space, message, List, Spin, InputNumber } from 'antd';
-import { PlusOutlined, LinkOutlined, DisconnectOutlined, ThunderboltOutlined, SettingOutlined } from '@ant-design/icons';
+import { Card, Button, Modal, Form, Input, Select, Tag, Space, message, List, Spin, Descriptions } from 'antd';
+import { PlusOutlined, LinkOutlined, DisconnectOutlined, ThunderboltOutlined, SettingOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchPlatforms, fetchAvailablePlatforms } from '../store/platformSlice';
@@ -18,6 +18,9 @@ const PlatformManager: React.FC = () => {
   const [form] = Form.useForm();
   const [configForm] = Form.useForm();
 
+  const [testingIds, setTestingIds] = useState<Set<number>>(new Set());
+  const [validating, setValidating] = useState(false);
+
   useEffect(() => {
     dispatch(fetchPlatforms());
     dispatch(fetchAvailablePlatforms());
@@ -25,15 +28,32 @@ const PlatformManager: React.FC = () => {
 
   const handleBind = async (values: any) => {
     try {
-      const { app_id, app_secret, ...rest } = values;
+      const { app_id, app_secret, access_token, ...rest } = values;
       const bindData: any = { ...rest };
       if (values.platform_name === 'wechat_mp') {
         bindData.config = { app_id, app_secret };
+        if (access_token) {
+          bindData.access_token = access_token;
+        }
       }
-      await apiService.bindPlatformAccount(bindData);
-      message.success('绑定成功');
+      const newAccount = await apiService.bindPlatformAccount(bindData);
       setModalOpen(false);
       form.resetFields();
+      dispatch(fetchPlatforms());
+
+      const hide = message.loading('绑定成功，正在自动测试连接...', 0);
+      try {
+        const result = await apiService.autoTestPlatform(newAccount.id);
+        hide();
+        if (result.connected) {
+          message.success('自动测试通过，access_token 已保存，平台状态已更新为 active');
+        } else {
+          message.warning(`自动测试未通过: ${result.error || '请检查配置'}`);
+        }
+      } catch {
+        hide();
+        message.warning('自动测试失败，请稍后手动测试');
+      }
       dispatch(fetchPlatforms());
     } catch (e: any) {
       message.error(e.response?.data?.detail || '绑定失败');
@@ -51,11 +71,27 @@ const PlatformManager: React.FC = () => {
   };
 
   const handleTest = async (id: number) => {
+    setTestingIds(prev => new Set(prev).add(id));
     try {
       const result = await apiService.testPlatformConnection(id);
-      message[result.connected ? 'success' : 'error'](result.connected ? '连接正常' : '连接失败');
+      if (result.connected) {
+        if (result.access_token_saved) {
+          message.success('连接正常，access_token 已自动获取并保存，状态已更新为 active');
+        } else {
+          message.success('连接正常，状态已更新为 active');
+        }
+      } else {
+        message.error(`连接失败: ${result.error || '请检查配置'}`);
+      }
+      dispatch(fetchPlatforms());
     } catch (e: any) {
       message.error(e.response?.data?.detail || '测试失败');
+    } finally {
+      setTestingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -65,6 +101,7 @@ const PlatformManager: React.FC = () => {
     configForm.setFieldsValue({
       app_id: account?.config?.app_id || '',
       app_secret: account?.config?.app_secret || '',
+      access_token: account?.access_token || '',
     });
     setConfigModalOpen(true);
   };
@@ -72,14 +109,79 @@ const PlatformManager: React.FC = () => {
   const handleConfigSave = async (values: any) => {
     if (!configAccountId) return;
     try {
-      await apiService.updatePlatformAccount(configAccountId, {
+      const updateData: any = {
         config: { app_id: values.app_id, app_secret: values.app_secret },
-      });
-      message.success('配置已保存');
+      };
+      if (values.access_token) {
+        updateData.access_token = values.access_token;
+      }
+      await apiService.updatePlatformAccount(configAccountId, updateData);
       setConfigModalOpen(false);
+      dispatch(fetchPlatforms());
+
+      if (values.access_token) {
+        const hide = message.loading('正在验证提供的 access_token...', 0);
+        try {
+          const result = await apiService.validatePlatformToken(configAccountId, values.access_token);
+          hide();
+          if (result.valid) {
+            if (result.refreshed) {
+              message.warning('提供的 token 无效，已重新获取并验证通过');
+            } else {
+              message.success('access_token 验证通过');
+            }
+          } else {
+            message.error(result.message || 'access_token 验证失败');
+          }
+        } catch {
+          hide();
+          message.warning('token 验证请求失败');
+        }
+      } else {
+        const hide = message.loading('配置已保存，正在自动测试连接...', 0);
+        try {
+          const result = await apiService.autoTestPlatform(configAccountId);
+          hide();
+          if (result.connected) {
+            message.success('自动测试通过，access_token 已自动获取并保存');
+          } else {
+            message.warning('自动测试未通过，请检查配置');
+          }
+        } catch {
+          hide();
+          message.warning('自动测试失败，请稍后手动测试');
+        }
+      }
       dispatch(fetchPlatforms());
     } catch (e: any) {
       message.error(e.response?.data?.detail || '配置失败');
+    }
+  };
+
+  const handleValidateToken = async () => {
+    if (!configAccountId) return;
+    const accessToken = configForm.getFieldValue('access_token');
+    if (!accessToken) {
+      message.warning('请先输入 access_token');
+      return;
+    }
+    setValidating(true);
+    try {
+      const result = await apiService.validatePlatformToken(configAccountId, accessToken);
+      if (result.valid) {
+        if (result.refreshed) {
+          message.warning('提供的 token 无效，已重新获取并验证通过');
+        } else {
+          message.success('access_token 验证通过');
+        }
+      } else {
+        message.error(result.message || '验证失败');
+      }
+      dispatch(fetchPlatforms());
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '验证请求失败');
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -98,10 +200,12 @@ const PlatformManager: React.FC = () => {
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>绑定平台</Button>
       </div>
       <List
-        grid={{ gutter: 16, columns: 3 }}
+        grid={{ gutter: 16, column: 3 }}
         dataSource={accounts}
         renderItem={item => {
           const isWechatMP = item.platform_name === 'wechat_mp';
+          const hasToken = !!item.access_token;
+          const isExpired = item.token_expires_at ? new Date(item.token_expires_at) < new Date() : true;
           return (
             <List.Item>
               <Card
@@ -113,13 +217,31 @@ const PlatformManager: React.FC = () => {
                 }
                 extra={<Tag color={item.status === 'active' ? 'green' : 'red'}>{item.status}</Tag>}
                 actions={[
-                  <Button size="small" icon={<ThunderboltOutlined />} onClick={() => handleTest(item.id)}>测试</Button>,
+                  <Button size="small" icon={testingIds.has(item.id) ? <LoadingOutlined /> : <ThunderboltOutlined />} onClick={() => handleTest(item.id)} disabled={testingIds.has(item.id)}>测试</Button>,
                   ...(isWechatMP ? [<Button size="small" icon={<SettingOutlined />} onClick={() => handleConfigWechat(item.id)}>配置</Button>] : []),
                   <Button size="small" danger icon={<DisconnectOutlined />} onClick={() => handleUnbind(item.id)}>解绑</Button>,
                 ]}
               >
                 <p>账号：{item.account_name}</p>
                 {isWechatMP && item.config?.app_id && <p style={{ color: '#999', fontSize: 12 }}>AppID：{item.config.app_id}</p>}
+                {isWechatMP && (
+                  <div style={{ fontSize: 12, color: '#999' }}>
+                    <Space>
+                      {hasToken ? (
+                        isExpired ? (
+                          <Tag color="orange" style={{ fontSize: 11 }}>Token 已过期</Tag>
+                        ) : (
+                          <Tag color="green" style={{ fontSize: 11 }}>Token 有效</Tag>
+                        )
+                      ) : (
+                        <Tag color="default" style={{ fontSize: 11 }}>未获取 Token</Tag>
+                      )}
+                      {item.token_expires_at && (
+                        <span>过期: {new Date(item.token_expires_at).toLocaleString()}</span>
+                      )}
+                    </Space>
+                  </div>
+                )}
               </Card>
             </List.Item>
           );
@@ -156,6 +278,9 @@ const PlatformManager: React.FC = () => {
                     <Form.Item name="app_secret" label="AppSecret" rules={[{ required: true }]}>
                       <Input.Password placeholder="公众号 AppSecret" />
                     </Form.Item>
+                    <Form.Item name="access_token" label="Access Token（可选）" extra="如果已手动获取 access_token，可填入此处进行验证。留空则绑定后自动获取。">
+                      <Input.Password placeholder="Access Token（可选）" />
+                    </Form.Item>
                   </>
                 );
               }
@@ -168,7 +293,15 @@ const PlatformManager: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-      <Modal title="微信公众号配置" open={configModalOpen} onCancel={() => setConfigModalOpen(false)} onOk={() => configForm.submit()}>
+      <Modal title="微信公众号配置" open={configModalOpen} onCancel={() => setConfigModalOpen(false)} width={600} footer={[
+        <Button key="cancel" onClick={() => setConfigModalOpen(false)}>取消</Button>,
+        <Button key="validate" icon={<SafetyCertificateOutlined />} loading={validating} onClick={handleValidateToken}>
+          验证 Token
+        </Button>,
+        <Button key="save" type="primary" onClick={() => configForm.submit()}>
+          保存
+        </Button>,
+      ]}>
         <Form form={configForm} layout="vertical" onFinish={handleConfigSave}>
           <Form.Item name="app_id" label="AppID" rules={[{ required: true }]}>
             <Input placeholder="公众号 AppID" />
@@ -176,7 +309,36 @@ const PlatformManager: React.FC = () => {
           <Form.Item name="app_secret" label="AppSecret" rules={[{ required: true }]}>
             <Input.Password placeholder="公众号 AppSecret" />
           </Form.Item>
+          <Form.Item
+            name="access_token"
+            label="Access Token"
+            extra="可手动填入 access_token 并点击「验证 Token」按钮验证。留空则保存时通过 AppID/AppSecret 自动获取。"
+          >
+            <Input.TextArea rows={2} placeholder="Access Token（可手动填入或自动获取）" />
+          </Form.Item>
         </Form>
+        {(() => {
+          const account = accounts.find(a => a.id === configAccountId);
+          if (!account) return null;
+          return (
+            <Descriptions size="small" bordered column={1} style={{ marginTop: 8 }}>
+              <Descriptions.Item label="当前状态">
+                <Tag color={account.status === 'active' ? 'green' : 'red'}>{account.status}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Token 状态">
+                {account.access_token ? (
+                  account.token_expires_at && new Date(account.token_expires_at) > new Date() ? (
+                    <Space><CheckCircleOutlined style={{ color: '#52c41a' }} /><span>有效（过期时间: {new Date(account.token_expires_at).toLocaleString()}）</span></Space>
+                  ) : (
+                    <Space><CloseCircleOutlined style={{ color: '#faad14' }} /><span>已过期</span></Space>
+                  )
+                ) : (
+                  <span style={{ color: '#999' }}>未获取</span>
+                )}
+              </Descriptions.Item>
+            </Descriptions>
+          );
+        })()}
       </Modal>
     </div>
   );

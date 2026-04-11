@@ -1,4 +1,5 @@
 import re
+import difflib
 import shutil
 import logging
 from pathlib import Path
@@ -425,6 +426,33 @@ def get_article_publish_status(
     return result
 
 
+def _generate_change_summary(
+    old_title: str | None,
+    old_content: str | None,
+    new_title: str,
+    new_content: str,
+) -> str:
+    changes: list[str] = []
+    if old_title is not None and old_title != new_title:
+        changes.append(f"标题从「{old_title}」改为「{new_title}」")
+    if old_content is not None:
+        old_lines = old_content.splitlines(keepends=True)
+        new_lines = new_content.splitlines(keepends=True)
+        diff = list(difflib.unified_diff(old_lines, new_lines, n=0))
+        added = sum(1 for l in diff if l.startswith("+") and not l.startswith("+++"))
+        removed = sum(1 for l in diff if l.startswith("-") and not l.startswith("---"))
+        if added or removed:
+            parts: list[str] = []
+            if added:
+                parts.append(f"新增 {added} 行")
+            if removed:
+                parts.append(f"删除 {removed} 行")
+            changes.append("，".join(parts))
+    if not changes:
+        return "内容无变化"
+    return "；".join(changes)
+
+
 @router.post("/{article_id}/versions", response_model=ArticleVersionResponse)
 def create_article_version(
     article_id: int,
@@ -447,6 +475,27 @@ def create_article_version(
     )
     next_number = (max_version[0] + 1) if max_version else 1
 
+    prev_version = None
+    if max_version:
+        prev_version = (
+            db.query(ArticleVersion)
+            .filter(
+                ArticleVersion.article_id == article_id,
+                ArticleVersion.version_number == max_version[0],
+            )
+            .first()
+        )
+
+    if prev_version:
+        change_summary = _generate_change_summary(
+            prev_version.title,
+            prev_version.content,
+            article.title,
+            article.content,
+        )
+    else:
+        change_summary = "创建初始版本"
+
     version = ArticleVersion(
         article_id=article.id,
         version_number=next_number,
@@ -454,6 +503,7 @@ def create_article_version(
         content=article.content,
         summary=article.summary,
         tags=article.tags,
+        change_summary=change_summary,
     )
     db.add(version)
     db.commit()
@@ -598,3 +648,70 @@ def restore_article_version(
     db.commit()
     db.refresh(article)
     return _article_to_response(article, db)
+
+
+@router.get("/{article_id}/versions/{version_id}/diff")
+def get_version_diff(
+    article_id: int,
+    version_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    version = (
+        db.query(ArticleVersion)
+        .filter(
+            ArticleVersion.id == version_id, ArticleVersion.article_id == article_id
+        )
+        .first()
+    )
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    prev_version = None
+    if version.version_number > 1:
+        prev_version = (
+            db.query(ArticleVersion)
+            .filter(
+                ArticleVersion.article_id == article_id,
+                ArticleVersion.version_number == version.version_number - 1,
+            )
+            .first()
+        )
+
+    if version.version_number == 1:
+        old_lines: list[str] = []
+        new_lines = version.content.splitlines(keepends=True)
+    else:
+        old_lines = (prev_version.content if prev_version else "").splitlines(
+            keepends=True
+        )
+        new_lines = version.content.splitlines(keepends=True)
+
+    diff_lines = list(difflib.unified_diff(old_lines, new_lines, n=3))
+    diff_text = "".join(diff_lines)
+
+    title_diff = None
+    if version.version_number > 1 and prev_version:
+        if prev_version.title != version.title:
+            title_diff = {
+                "old": prev_version.title,
+                "new": version.title,
+            }
+    elif version.version_number == 1:
+        title_diff = {"old": None, "new": version.title}
+
+    return {
+        "version_id": version.id,
+        "version_number": version.version_number,
+        "change_summary": version.change_summary,
+        "diff": diff_text,
+        "title_diff": title_diff,
+    }

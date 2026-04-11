@@ -249,7 +249,7 @@ const ArticleEditor: React.FC = () => {
     } catch {}
   }, [title, articleId, content, tagIds, currentVersionId, dispatch]);
 
-  const { status: autoSaveStatus, lastSavedAtFormatted, markSaved } = useAutoSave(autoSaveFn, content + title, 30000);
+  const { status: autoSaveStatus, lastSavedAtFormatted, markSaved } = useAutoSave(autoSaveFn, content + title, 3000);
 
   useEffect(() => { markSavedRef.current = markSaved; }, [markSaved]);
 

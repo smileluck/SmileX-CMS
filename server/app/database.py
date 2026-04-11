@@ -1,6 +1,6 @@
 import os
 import logging
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker, declarative_base
 from .config import DATABASE_URL
 
@@ -25,10 +25,34 @@ def get_db():
         db.close()
 
 
+def _migrate_db(engine):
+    _MIGRATIONS = [
+        {
+            "table": "article_versions",
+            "column": "change_summary",
+            "definition": "TEXT",
+        },
+    ]
+
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for mig in _MIGRATIONS:
+            table = mig["table"]
+            column = mig["column"]
+            existing = [c["name"] for c in insp.get_columns(table)]
+            if column not in existing:
+                logger.info("Adding column %s.%s", table, column)
+                conn.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN {column} {mig['definition']}")
+                )
+
+
 def init_db():
     from . import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+
+    _migrate_db(engine)
 
     db = SessionLocal()
     try:

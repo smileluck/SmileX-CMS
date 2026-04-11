@@ -28,6 +28,7 @@ class ArticleVersion(Base):
     content = Column(Text, nullable=False, default="")
     summary = Column(Text)
     tags = Column(JSON)
+    change_summary = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     article = relationship("Article", back_populates="versions")

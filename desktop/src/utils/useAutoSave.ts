@@ -16,57 +16,60 @@ export function useAutoSave(
 ) {
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const lastSavedRef = useRef(data);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedDataRef = useRef(data);
+  const currentDataRef = useRef(data);
+  const isDirtyRef = useRef(false);
+  const savingRef = useRef(false);
+
   const saveFnRef = useRef(saveFn);
+  useEffect(() => { saveFnRef.current = saveFn; }, [saveFn]);
 
   useEffect(() => {
-    saveFnRef.current = saveFn;
-  }, [saveFn]);
-
-  const save = useCallback(async () => {
-    if (data === lastSavedRef.current) return;
-    try {
-      setStatus('saving');
-      await saveFnRef.current();
-      lastSavedRef.current = data;
-      setLastSavedAt(new Date());
-      setStatus('saved');
-    } catch {
-      setStatus('error');
+    currentDataRef.current = data;
+    if (data !== lastSavedDataRef.current) {
+      isDirtyRef.current = true;
     }
   }, [data]);
 
   const markSaved = useCallback(() => {
-    lastSavedRef.current = data;
+    lastSavedDataRef.current = currentDataRef.current;
+    isDirtyRef.current = false;
     setLastSavedAt(new Date());
     setStatus('saved');
-  }, [data]);
+  }, []);
 
   useEffect(() => {
-    timerRef.current = setInterval(() => {
-      if (data !== lastSavedRef.current) {
-        save();
+    const timer = setInterval(async () => {
+      if (!isDirtyRef.current || savingRef.current) return;
+      savingRef.current = true;
+      isDirtyRef.current = false;
+      try {
+        setStatus('saving');
+        await saveFnRef.current();
+        lastSavedDataRef.current = currentDataRef.current;
+        setLastSavedAt(new Date());
+        setStatus('saved');
+      } catch {
+        setStatus('error');
+      } finally {
+        savingRef.current = false;
       }
     }, intervalMs);
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [data, intervalMs, save]);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (data !== lastSavedRef.current) {
-        save();
+      if (isDirtyRef.current) {
         e.preventDefault();
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [data, save]);
+  }, []);
 
   const lastSavedAtFormatted = lastSavedAt ? formatTime(lastSavedAt) : null;
 
-  return { status, save, lastSavedAt, lastSavedAtFormatted, markSaved };
+  return { status, lastSavedAt, lastSavedAtFormatted, markSaved };
 }

@@ -218,6 +218,7 @@ export interface ArticleVersion {
   content: string;
   summary: string | null;
   tags: string[] | null;
+  change_summary: string | null;
   created_at: string;
 }
 
@@ -228,5 +229,14 @@ export interface ArticleVersionBrief {
   title: string;
   summary: string | null;
   tags: string[] | null;
+  change_summary: string | null;
   created_at: string;
+}
+
+export interface VersionDiff {
+  version_id: number;
+  version_number: number;
+  change_summary: string | null;
+  diff: string;
+  title_diff: { old: string | null; new: string } | null;
 }

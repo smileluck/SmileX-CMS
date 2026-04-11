@@ -3,7 +3,7 @@ import type { AxiosInstance } from 'axios';
 import type {
   Token, User, UserCreate,
   Article, ArticleCreate, ArticleUpdate,
-  ArticleVersion, ArticleVersionBrief,
+  ArticleVersion, ArticleVersionBrief, VersionDiff,
   Tag, TagCreate, TagUpdate,
   Media, AppSettings,
   PlatformAccount, PlatformAccountCreate, PlatformInfo,
@@ -303,6 +303,11 @@ class ApiService {
 
   async restoreArticleVersion(articleId: number, versionId: number): Promise<Article> {
     const { data } = await this.client.post<Article>(`/articles/${articleId}/versions/${versionId}/restore`);
+    return data;
+  }
+
+  async getVersionDiff(articleId: number, versionId: number): Promise<VersionDiff> {
+    const { data } = await this.client.get<VersionDiff>(`/articles/${articleId}/versions/${versionId}/diff`);
     return data;
   }
 

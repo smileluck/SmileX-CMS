@@ -73,6 +73,7 @@ class ArticleVersionResponse(BaseModel):
     content: str = ""
     summary: Optional[str] = None
     tags: Optional[List[str]] = None
+    change_summary: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -85,6 +86,7 @@ class ArticleVersionBrief(BaseModel):
     title: str
     summary: Optional[str] = None
     tags: Optional[List[str]] = None
+    change_summary: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

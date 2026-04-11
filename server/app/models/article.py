@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..database import Base
+from .article_version import ArticleVersion
 
 
 class Article(Base):
@@ -32,6 +33,14 @@ class Article(Base):
     group = relationship("Group", back_populates="articles")
     media = relationship("Media", back_populates="article")
     publish_tasks = relationship("PublishTask", back_populates="article")
-    tags_rel = relationship("Tag", secondary="article_tags", back_populates="articles", lazy="joined")
+    tags_rel = relationship(
+        "Tag", secondary="article_tags", back_populates="articles", lazy="joined"
+    )
+    versions = relationship(
+        "ArticleVersion",
+        back_populates="article",
+        cascade="all, delete-orphan",
+        order_by="ArticleVersion.version_number.desc()",
+    )
 
     __table_args__ = (Index("ix_articles_user_status", "author_id", "status"),)

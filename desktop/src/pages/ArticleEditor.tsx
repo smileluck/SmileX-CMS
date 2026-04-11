@@ -13,6 +13,7 @@ import { inlineStyles } from '../utils/inlineStyles';
 import { useAutoSave } from '../utils/useAutoSave';
 import { useHistory } from '../hooks/useHistory';
 import EditorToolbar from '../components/Editor/EditorToolbar';
+import VersionHistory from '../components/Editor/VersionHistory';
 import PlatformPreview from '../components/Preview/PlatformPreview';
 import PlatformIcon, { platformNameMap } from '../components/PlatformIcon';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
@@ -187,6 +188,8 @@ const ArticleEditor: React.FC = () => {
   const [articleFilePath, setArticleFilePath] = useState<string | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const markSavedRef = useRef<(() => void) | null>(null);
+  const [currentVersionId, setCurrentVersionId] = useState<number | null>(null);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
 
   const historyManager = useHistory('');
   const setContent = useCallback((valueOrUpdater: string | ((prev: string) => string), description: string = '编辑内容') => {
@@ -215,6 +218,9 @@ const ArticleEditor: React.FC = () => {
       setTagIds(article.tag_objects?.map(t => t.id) || []);
       setArticleFilePath(article.file_path);
       setLoading(false);
+      apiService.createArticleVersion(Number(id)).then(version => {
+        if (!cancelled) setCurrentVersionId(version.id);
+      }).catch(() => {});
     }).catch(() => {
       if (cancelled) return;
       message.error('加载失败');
@@ -237,8 +243,11 @@ const ArticleEditor: React.FC = () => {
     const data: any = { title, content, tag_ids: tagIds };
     try {
       await dispatch(updateArticle({ id: articleId, data })).unwrap();
+      if (currentVersionId) {
+        await apiService.updateArticleVersion(articleId, currentVersionId, { content, title }).catch(() => {});
+      }
     } catch {}
-  }, [title, articleId, content, tagIds, dispatch]);
+  }, [title, articleId, content, tagIds, currentVersionId, dispatch]);
 
   const { status: autoSaveStatus, lastSavedAtFormatted, markSaved } = useAutoSave(autoSaveFn, content + title, 30000);
 
@@ -365,6 +374,14 @@ const ArticleEditor: React.FC = () => {
     setPendingImages(prev => [...prev, { mediaId, originalPath }]);
   }, []);
 
+  const handleVersionRestore = useCallback((article: any) => {
+    setTitle(article.title);
+    setContentRaw(article.content);
+    historyManager.pushState(article.content, '恢复版本');
+    setTagIds(article.tag_objects?.map((t: any) => t.id) || []);
+    setVersionHistoryOpen(false);
+  }, [historyManager]);
+
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const files = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
     if (files.length > 0) {
@@ -465,6 +482,7 @@ const ArticleEditor: React.FC = () => {
             history={historyManager.history}
             currentIndex={historyManager.currentIndex}
             onJumpTo={handleJumpTo}
+            onVersionHistory={articleId ? () => setVersionHistoryOpen(true) : undefined}
           />
           <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {editMode === 'wysiwyg' ? (
@@ -548,6 +566,15 @@ const ArticleEditor: React.FC = () => {
           </div>
         </div>
       </div>
+      {articleId && (
+        <VersionHistory
+          open={versionHistoryOpen}
+          articleId={articleId}
+          articleFilePath={articleFilePath}
+          onClose={() => setVersionHistoryOpen(false)}
+          onRestore={handleVersionRestore}
+        />
+      )}
     </div>
   );
 };

@@ -57,7 +57,34 @@ class ArticleResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         None, validation_alias="article_metadata"
     )
+    current_version: Optional[int] = None
+    version_count: int = 0
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ArticleVersionResponse(BaseModel):
+    id: int
+    article_id: int
+    version_number: int
+    title: str
+    content: str = ""
+    summary: Optional[str] = None
+    tags: Optional[List[str]] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ArticleVersionBrief(BaseModel):
+    id: int
+    article_id: int
+    version_number: int
+    title: str
+    summary: Optional[str] = None
+    tags: Optional[List[str]] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

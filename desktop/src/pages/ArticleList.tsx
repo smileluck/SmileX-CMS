@@ -127,6 +127,14 @@ const ArticleList: React.FC = () => {
       render: (_: any, record: any) => renderPublishStatus(record.id),
     },
     {
+      title: '版本', key: 'version', width: 80,
+      render: (_: any, record: any) => (
+        <span style={{ fontSize: 12, color: record.version_count > 0 ? '#1890ff' : '#999' }}>
+          {record.version_count || 0}
+        </span>
+      ),
+    },
+    {
       title: '标签', dataIndex: 'tags', key: 'tags', width: 200,
       render: (tags: string[], record: any) => {
         if (record.tag_objects && record.tag_objects.length > 0) {

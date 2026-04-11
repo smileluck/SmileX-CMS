@@ -9,12 +9,20 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User
 from ..models.article import Article
+from ..models.article_version import ArticleVersion
 from ..models.group import Group
 from ..models.media import Media
 from ..models.publish_task import PublishTask
 from ..models.platform import PlatformAccount
 from ..models.tag import Tag, ArticleTag
-from ..schemas.article import ArticleCreate, ArticleUpdate, ArticleResponse, TagBrief
+from ..schemas.article import (
+    ArticleCreate,
+    ArticleUpdate,
+    ArticleResponse,
+    TagBrief,
+    ArticleVersionResponse,
+    ArticleVersionBrief,
+)
 from ..snowid import generate_snow_id
 from ..config import BASE_STORAGE_DIR
 from ..routes.settings import (
@@ -72,12 +80,28 @@ def _sync_article_tags(db: Session, article: Article, tag_ids: List[int], user_i
     article.tags = tag_names
 
 
-def _article_to_response(article: Article) -> dict:
+def _article_to_response(article: Article, db: Session = None) -> dict:
     tag_objects = []
     if article.tags_rel:
         tag_objects = [
             TagBrief(id=t.id, name=t.name, color=t.color) for t in article.tags_rel
         ]
+    version_count = 0
+    current_version = None
+    if db is not None:
+        version_count = (
+            db.query(ArticleVersion)
+            .filter(ArticleVersion.article_id == article.id)
+            .count()
+        )
+        latest = (
+            db.query(ArticleVersion)
+            .filter(ArticleVersion.article_id == article.id)
+            .order_by(ArticleVersion.version_number.desc())
+            .first()
+        )
+        if latest:
+            current_version = latest.version_number
     return {
         "id": article.id,
         "snow_id": article.snow_id,
@@ -93,6 +117,8 @@ def _article_to_response(article: Article) -> dict:
         "tags": article.tags,
         "tag_objects": tag_objects,
         "metadata": article.article_metadata,
+        "current_version": current_version,
+        "version_count": version_count,
         "created_at": article.created_at,
         "updated_at": article.updated_at,
     }
@@ -135,7 +161,7 @@ def create_article(
 
     db.commit()
     db.refresh(db_article)
-    return _article_to_response(db_article)
+    return _article_to_response(db_article, db)
 
 
 @router.get("", response_model=List[ArticleResponse])
@@ -167,7 +193,7 @@ def get_articles(
         )
         q = q.filter(Article.id.in_(article_ids_sub))
     articles = q.order_by(Article.updated_at.desc()).offset(skip).limit(limit).all()
-    return [_article_to_response(a) for a in articles]
+    return [_article_to_response(a, db) for a in articles]
 
 
 @router.get("/publish-summary/batch")
@@ -219,7 +245,7 @@ def get_article(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Article not found"
         )
-    return _article_to_response(article)
+    return _article_to_response(article, db)
 
 
 @router.put("/{article_id}", response_model=ArticleResponse)
@@ -282,7 +308,7 @@ def update_article(
 
     db.commit()
     db.refresh(article)
-    return _article_to_response(article)
+    return _article_to_response(article, db)
 
 
 @router.delete("/{article_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -360,7 +386,7 @@ def duplicate_article(
 
     db.commit()
     db.refresh(new_article)
-    return _article_to_response(new_article)
+    return _article_to_response(new_article, db)
 
 
 @router.get("/{article_id}/publish-status")
@@ -397,3 +423,178 @@ def get_article_publish_status(
             }
         )
     return result
+
+
+@router.post("/{article_id}/versions", response_model=ArticleVersionResponse)
+def create_article_version(
+    article_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    max_version = (
+        db.query(ArticleVersion.version_number)
+        .filter(ArticleVersion.article_id == article_id)
+        .order_by(ArticleVersion.version_number.desc())
+        .first()
+    )
+    next_number = (max_version[0] + 1) if max_version else 1
+
+    version = ArticleVersion(
+        article_id=article.id,
+        version_number=next_number,
+        title=article.title,
+        content=article.content,
+        summary=article.summary,
+        tags=article.tags,
+    )
+    db.add(version)
+    db.commit()
+    db.refresh(version)
+    return version
+
+
+@router.get("/{article_id}/versions", response_model=List[ArticleVersionBrief])
+def get_article_versions(
+    article_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    versions = (
+        db.query(ArticleVersion)
+        .filter(ArticleVersion.article_id == article_id)
+        .order_by(ArticleVersion.version_number.desc())
+        .all()
+    )
+    return versions
+
+
+@router.get(
+    "/{article_id}/versions/{version_id}", response_model=ArticleVersionResponse
+)
+def get_article_version(
+    article_id: int,
+    version_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    version = (
+        db.query(ArticleVersion)
+        .filter(
+            ArticleVersion.id == version_id, ArticleVersion.article_id == article_id
+        )
+        .first()
+    )
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return version
+
+
+@router.put(
+    "/{article_id}/versions/{version_id}", response_model=ArticleVersionResponse
+)
+def update_article_version(
+    article_id: int,
+    version_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    version = (
+        db.query(ArticleVersion)
+        .filter(
+            ArticleVersion.id == version_id, ArticleVersion.article_id == article_id
+        )
+        .first()
+    )
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    if "content" in data:
+        version.content = data["content"]
+    if "title" in data:
+        version.title = data["title"]
+    if "summary" in data:
+        version.summary = data["summary"]
+
+    db.commit()
+    db.refresh(version)
+    return version
+
+
+@router.post(
+    "/{article_id}/versions/{version_id}/restore", response_model=ArticleResponse
+)
+def restore_article_version(
+    article_id: int,
+    version_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    version = (
+        db.query(ArticleVersion)
+        .filter(
+            ArticleVersion.id == version_id, ArticleVersion.article_id == article_id
+        )
+        .first()
+    )
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    article.title = version.title
+    article.content = version.content
+    article.summary = version.summary
+    article.tags = version.tags
+
+    if article.file_path:
+        content_dir = _get_content_dir(article.article_type, db, current_user.id)
+        article_dir = _resolve_article_dir(article, content_dir)
+        try:
+            article_dir.mkdir(parents=True, exist_ok=True)
+            (article_dir / "images").mkdir(exist_ok=True)
+            (article_dir / "index.md").write_text(version.content, encoding="utf-8")
+        except OSError as e:
+            logger.error("Failed to write restored content: %s", e)
+
+    db.commit()
+    db.refresh(article)
+    return _article_to_response(article, db)

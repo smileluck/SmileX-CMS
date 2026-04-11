@@ -63,6 +63,8 @@ export interface Article {
   tags: string[] | null;
   tag_objects: TagBrief[] | null;
   metadata: Record<string, any> | null;
+  current_version: number | null;
+  version_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -206,4 +208,25 @@ export interface ArticlePublishStatus {
   status: string;
   platform_post_url: string | null;
   error_message: string | null;
+}
+
+export interface ArticleVersion {
+  id: number;
+  article_id: number;
+  version_number: number;
+  title: string;
+  content: string;
+  summary: string | null;
+  tags: string[] | null;
+  created_at: string;
+}
+
+export interface ArticleVersionBrief {
+  id: number;
+  article_id: number;
+  version_number: number;
+  title: string;
+  summary: string | null;
+  tags: string[] | null;
+  created_at: string;
 }

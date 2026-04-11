@@ -3,6 +3,7 @@ import type { AxiosInstance } from 'axios';
 import type {
   Token, User, UserCreate,
   Article, ArticleCreate, ArticleUpdate,
+  ArticleVersion, ArticleVersionBrief,
   Tag, TagCreate, TagUpdate,
   Media, AppSettings,
   PlatformAccount, PlatformAccountCreate, PlatformInfo,
@@ -277,6 +278,31 @@ class ApiService {
     error_message: string | null;
   }>>> {
     const { data } = await this.client.get('/articles/publish-summary/batch');
+    return data;
+  }
+
+  async createArticleVersion(articleId: number): Promise<ArticleVersion> {
+    const { data } = await this.client.post<ArticleVersion>(`/articles/${articleId}/versions`);
+    return data;
+  }
+
+  async getArticleVersions(articleId: number): Promise<ArticleVersionBrief[]> {
+    const { data } = await this.client.get<ArticleVersionBrief[]>(`/articles/${articleId}/versions`);
+    return data;
+  }
+
+  async getArticleVersion(articleId: number, versionId: number): Promise<ArticleVersion> {
+    const { data } = await this.client.get<ArticleVersion>(`/articles/${articleId}/versions/${versionId}`);
+    return data;
+  }
+
+  async updateArticleVersion(articleId: number, versionId: number, updateData: { content?: string; title?: string }): Promise<ArticleVersion> {
+    const { data } = await this.client.put<ArticleVersion>(`/articles/${articleId}/versions/${versionId}`, updateData);
+    return data;
+  }
+
+  async restoreArticleVersion(articleId: number, versionId: number): Promise<Article> {
+    const { data } = await this.client.post<Article>(`/articles/${articleId}/versions/${versionId}/restore`);
     return data;
   }
 

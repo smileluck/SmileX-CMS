@@ -18,6 +18,7 @@ import {
   EditOutlined,
   FileTextOutlined,
   HistoryOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import type { HistoryEntry } from '../../hooks/useHistory';
@@ -35,6 +36,7 @@ interface EditorToolbarProps {
   history?: HistoryEntry[];
   currentIndex?: number;
   onJumpTo?: (index: number) => void;
+  onVersionHistory?: () => void;
 }
 
 const headingItems: MenuProps['items'] = [
@@ -67,6 +69,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
   history = [],
   currentIndex = 0,
   onJumpTo,
+  onVersionHistory,
 }) => {
   const disabled = !editorReady;
 
@@ -219,6 +222,11 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
             <Button type="text" size="small" icon={<HistoryOutlined />} disabled={history.length <= 1} />
           </Tooltip>
         </Popover>
+        {onVersionHistory && (
+          <Tooltip title="版本历史">
+            <Button type="text" size="small" icon={<ClockCircleOutlined />} onClick={onVersionHistory} />
+          </Tooltip>
+        )}
       </Space>
     </div>
   );

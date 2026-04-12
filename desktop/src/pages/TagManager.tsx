@@ -161,7 +161,7 @@ const TagManager: React.FC = () => {
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="标签名" rules={[{ required: true, message: '请输入标签名' }, { max: 50, message: '标签名最多50个字符' }]}>

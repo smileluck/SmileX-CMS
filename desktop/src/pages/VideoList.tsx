@@ -104,7 +104,7 @@ const VideoList: React.FC = () => {
         footer={null}
         onCancel={() => { setPreviewOpen(false); setPreviewUrl(null); }}
         width={800}
-        destroyOnClose
+        destroyOnHidden
       >
         {previewLoading ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>

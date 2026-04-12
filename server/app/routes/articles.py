@@ -426,6 +426,25 @@ def get_article_publish_status(
     return result
 
 
+def _count_tables(content: str) -> int:
+    lines = content.split("\n")
+    count = 0
+    i = 0
+    while i < len(lines):
+        if (
+            "|" in lines[i]
+            and i + 1 < len(lines)
+            and re.match(r"^[\s|:-]+$", lines[i + 1])
+        ):
+            count += 1
+            i += 2
+            while i < len(lines) and "|" in lines[i]:
+                i += 1
+        else:
+            i += 1
+    return count
+
+
 def _generate_change_summary(
     old_title: str | None,
     old_content: str | None,
@@ -433,9 +452,27 @@ def _generate_change_summary(
     new_content: str,
 ) -> str:
     changes: list[str] = []
+
     if old_title is not None and old_title != new_title:
         changes.append(f"标题从「{old_title}」改为「{new_title}」")
-    if old_content is not None:
+
+    if old_content is not None and old_content != new_content:
+        old_imgs = set(re.findall(r"!\[[^\]]*\]\([^)]+\)", old_content))
+        new_imgs = set(re.findall(r"!\[[^\]]*\]\([^)]+\)", new_content))
+        added_imgs = new_imgs - old_imgs
+        removed_imgs = old_imgs - new_imgs
+        if added_imgs:
+            changes.append(f"图片新增 {len(added_imgs)} 张")
+        if removed_imgs:
+            changes.append(f"图片删除 {len(removed_imgs)} 张")
+
+        old_tables = _count_tables(old_content)
+        new_tables = _count_tables(new_content)
+        if new_tables > old_tables:
+            changes.append(f"表格新增 {new_tables - old_tables} 个")
+        elif old_tables > new_tables:
+            changes.append(f"表格删除 {old_tables - new_tables} 个")
+
         old_lines = old_content.splitlines(keepends=True)
         new_lines = new_content.splitlines(keepends=True)
         diff = list(difflib.unified_diff(old_lines, new_lines, n=0))
@@ -448,6 +485,7 @@ def _generate_change_summary(
             if removed:
                 parts.append(f"删除 {removed} 行")
             changes.append("，".join(parts))
+
     if not changes:
         return "内容无变化"
     return "；".join(changes)
@@ -495,6 +533,14 @@ def create_article_version(
         )
     else:
         change_summary = "创建初始版本"
+
+    if (
+        prev_version
+        and prev_version.content == article.content
+        and prev_version.title == article.title
+        and prev_version.summary == article.summary
+    ):
+        return prev_version
 
     version = ArticleVersion(
         article_id=article.id,

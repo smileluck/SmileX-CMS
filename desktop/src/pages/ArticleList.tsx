@@ -129,7 +129,10 @@ const ArticleList: React.FC = () => {
     {
       title: '版本', key: 'version', width: 80,
       render: (_: any, record: any) => (
-        <span style={{ fontSize: 12, color: record.version_count > 0 ? '#1890ff' : '#999' }}>
+        <span
+          style={{ fontSize: 12, color: record.version_count > 0 ? '#1890ff' : '#999', cursor: 'pointer' }}
+          onClick={() => navigate(`/articles/${record.id}/versions`)}
+        >
           {record.version_count || 0}
         </span>
       ),

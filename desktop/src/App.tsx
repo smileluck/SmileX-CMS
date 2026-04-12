@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import ArticleList from './pages/ArticleList';
 import ArticleEditor from './pages/ArticleEditor';
 import ArticleSuccess from './pages/ArticleSuccess';
+import ArticleVersionList from './pages/ArticleVersionList';
 import VideoList from './pages/VideoList';
 import VideoEditor from './pages/VideoEditor';
 import MediaLibrary from './pages/MediaLibrary';
@@ -61,6 +62,7 @@ const AppContent: React.FC = () => (
       <Route path="/articles" element={<PrivateRoute><Layout><ArticleList /></Layout></PrivateRoute>} />
       <Route path="/articles/new" element={<PrivateRoute><Layout><ArticleEditor /></Layout></PrivateRoute>} />
       <Route path="/articles/success" element={<PrivateRoute><Layout><ArticleSuccess /></Layout></PrivateRoute>} />
+      <Route path="/articles/:id/versions" element={<PrivateRoute><Layout><ArticleVersionList /></Layout></PrivateRoute>} />
       <Route path="/articles/:id/edit" element={<PrivateRoute><Layout><ArticleEditor /></Layout></PrivateRoute>} />
       <Route path="/videos" element={<PrivateRoute><Layout><VideoList /></Layout></PrivateRoute>} />
       <Route path="/videos/new" element={<PrivateRoute><Layout><VideoEditor /></Layout></PrivateRoute>} />

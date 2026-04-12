@@ -243,11 +243,8 @@ const ArticleEditor: React.FC = () => {
     const data: any = { title, content, tag_ids: tagIds };
     try {
       await dispatch(updateArticle({ id: articleId, data })).unwrap();
-      if (currentVersionId) {
-        await apiService.updateArticleVersion(articleId, currentVersionId, { content, title }).catch(() => {});
-      }
     } catch {}
-  }, [title, articleId, content, tagIds, currentVersionId, dispatch]);
+  }, [title, articleId, content, tagIds, dispatch]);
 
   const { status: autoSaveStatus, lastSavedAtFormatted, markSaved } = useAutoSave(autoSaveFn, content + title, 3000);
 

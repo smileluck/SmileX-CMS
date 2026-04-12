@@ -187,6 +187,7 @@ const ArticleEditor: React.FC = () => {
   const [pendingImages, setPendingImages] = useState<{ mediaId: number; originalPath: string }[]>([]);
   const [articleFilePath, setArticleFilePath] = useState<string | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const markSavedRef = useRef<(() => void) | null>(null);
   const [currentVersionId, setCurrentVersionId] = useState<number | null>(null);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
@@ -303,24 +304,75 @@ const ArticleEditor: React.FC = () => {
 
   const handleImageUpload = useCallback(async (file: File) => {
     try {
+      let imgMd: string;
       if (articleId) {
         const media = await apiService.uploadToArticle(articleId, file);
         const imgPath = media.markdown_path || `images/${media.file_path.split('/').pop()}`;
-        const imgMd = `![${file.name}](./${imgPath})`;
-        setContent(prev => prev + '\n' + imgMd, '插入图片');
+        imgMd = `![${file.name}](./${imgPath})`;
       } else {
         const media = await apiService.uploadFile(file);
-        const imgMd = `![${file.name}](${media.file_path})`;
+        imgMd = `![${file.name}](${media.file_path})`;
         setPendingImages(prev => [...prev, { mediaId: media.id, originalPath: media.file_path }]);
+      }
+
+      if (editMode === 'markdown') {
+        const textarea = textareaRef.current;
+        if (textarea) {
+          const pos = textarea.selectionStart;
+          const insertText = '\n' + imgMd + '\n';
+          setContent(prev => prev.substring(0, pos) + insertText + prev.substring(pos), '插入图片');
+          const newPos = pos + insertText.length;
+          requestAnimationFrame(() => {
+            if (textareaRef.current) {
+              textareaRef.current.selectionStart = newPos;
+              textareaRef.current.selectionEnd = newPos;
+              textareaRef.current.focus();
+            }
+          });
+        } else {
+          setContent(prev => prev + '\n' + imgMd, '插入图片');
+        }
+      } else {
         setContent(prev => prev + '\n' + imgMd, '插入图片');
       }
       message.success('图片上传成功');
     } catch {
       message.error('图片上传失败');
     }
-  }, [articleId, setContent]);
+  }, [articleId, editMode, setContent]);
 
   const handleInsertMarkdown = useCallback((before: string, after: string = '', placeholder: string = '', block: boolean = false, description: string = '插入内容') => {
+    if (editMode === 'markdown') {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selectedText = textarea.value.substring(start, end);
+        const insertText = before + (selectedText || placeholder || '') + (after || '');
+
+        setContent(prev => {
+          let prefix = prev.substring(0, start);
+          const suffix = prev.substring(end);
+          if (block && prefix.length > 0 && !prefix.endsWith('\n')) {
+            prefix = prefix + '\n';
+          }
+          return prefix + insertText + suffix;
+        }, description);
+
+        const prefixLen = block && textarea.value.substring(0, start).length > 0 && !textarea.value.substring(0, start).endsWith('\n') ? 1 : 0;
+        const newStart = start + prefixLen + before.length;
+        const newEnd = newStart + (selectedText || placeholder || '').length;
+        requestAnimationFrame(() => {
+          if (textareaRef.current) {
+            textareaRef.current.selectionStart = newStart;
+            textareaRef.current.selectionEnd = newEnd;
+            textareaRef.current.focus();
+          }
+        });
+        return;
+      }
+    }
+
     setContent(prev => {
       let base = prev;
       if (block && base.length > 0 && !base.endsWith('\n')) {
@@ -328,7 +380,7 @@ const ArticleEditor: React.FC = () => {
       }
       return base + before + (placeholder || '') + (after || '');
     }, description);
-  }, [setContent]);
+  }, [editMode, setContent]);
 
   const handleCopyRichText = useCallback(async () => {
     if (!previewHtml) {
@@ -486,6 +538,7 @@ const ArticleEditor: React.FC = () => {
               <MilkdownEditor value={content} onChange={(val) => setContent(val, '编辑内容')} editorContainerRef={editorContainerRef} articleId={articleId} articleFilePath={articleFilePath} onPendingImage={handlePendingImage} />
             ) : (
               <textarea
+                ref={textareaRef}
                 value={content}
                 onChange={e => setContent(e.target.value, '输入文本')}
                 style={{

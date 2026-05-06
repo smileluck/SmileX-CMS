@@ -16,13 +16,28 @@ from ..schemas.publish import (
     PublishBatchResponse,
     PublishLocalRequest,
     PublishLocalResponse,
+    PublishLocalResultItem,
 )
 from ..dependencies import get_current_user
 from ..plugins.registry import PluginRegistry
+from ..plugins.themes import list_themes
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/publish", tags=["publish"])
+
+
+@router.get("/themes")
+def get_themes():
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "primary_color": t.primary_color,
+        }
+        for t in list_themes()
+    ]
 
 
 @router.post("/local", response_model=PublishLocalResponse)
@@ -39,16 +54,35 @@ def publish_local(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
-    plugin = PluginRegistry.get(req.platform_name)
-    if not plugin:
-        raise HTTPException(status_code=400, detail=f"Unknown platform: {req.platform_name}")
+    options: dict = {}
+    if req.theme_id:
+        options["theme_id"] = req.theme_id
+    if req.primary_color:
+        options["primary_color"] = req.primary_color
 
-    result = plugin.generate(article, {})
-    return PublishLocalResponse(
-        success=result.success,
-        output_path=result.output_path,
-        error_message=result.error_message,
-    )
+    results: list[PublishLocalResultItem] = []
+    all_success = True
+    for name in req.platform_names:
+        plugin = PluginRegistry.get(name)
+        if not plugin:
+            results.append(PublishLocalResultItem(
+                platform_name=name,
+                success=False,
+                error_message=f"Unknown platform: {name}",
+            ))
+            all_success = False
+            continue
+        gen = plugin.generate(article, options)
+        results.append(PublishLocalResultItem(
+            platform_name=name,
+            success=gen.success,
+            output_path=gen.output_path,
+            error_message=gen.error_message,
+        ))
+        if not gen.success:
+            all_success = False
+
+    return PublishLocalResponse(success=all_success, results=results)
 
 
 async def _execute_publish(task_id: int):

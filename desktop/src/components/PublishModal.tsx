@@ -7,6 +7,15 @@ import type { PlatformAccount, PlatformInfo } from '../types';
 
 type PublishMode = 'cloud' | 'local';
 
+interface ThemeInfo {
+  id: string;
+  name: string;
+  description: string;
+  primary_color: string;
+}
+
+const PRESET_COLORS = ['#07C160', '#35b378', '#1a1a1a', '#1890ff', '#f5222d', '#722ed1', '#fa8c16', '#eb2f96'];
+
 interface PublishModalProps {
   open: boolean;
   articleId: number;
@@ -16,24 +25,35 @@ interface PublishModalProps {
 
 const LOCAL_PLATFORMS = [
   { name: 'wechat_mp', label: '微信公众号' },
+  { name: 'xiaohongshu', label: '小红书' },
+  { name: 'zhihu', label: '知乎' },
+  { name: 'juejin', label: '掘金' },
 ];
 
 const PublishModal: React.FC<PublishModalProps> = ({ open, articleId, onCancel, onSuccess }) => {
   const [mode, setMode] = useState<PublishMode>('local');
   const [accounts, setAccounts] = useState<PlatformAccount[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [selectedLocalPlatform, setSelectedLocalPlatform] = useState<string>(LOCAL_PLATFORMS[0].name);
+  const [selectedLocalPlatforms, setSelectedLocalPlatforms] = useState<string[]>([LOCAL_PLATFORMS[0].name]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [themes, setThemes] = useState<ThemeInfo[]>([]);
+  const [selectedThemeId, setSelectedThemeId] = useState<string>('classic');
+  const [customColor, setCustomColor] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setSelectedIds([]);
+    setCustomColor(undefined);
+    setSelectedThemeId('classic');
     apiService.getPlatformAccounts()
       .then(data => setAccounts(data.filter(a => a.status === 'active')))
       .catch(() => message.error('获取平台账号失败'))
       .finally(() => setLoading(false));
+    apiService.getThemes()
+      .then(data => setThemes(data))
+      .catch(() => {/* non-critical */});
   }, [open]);
 
   const groupedAccounts = accounts.reduce((acc, account) => {
@@ -50,16 +70,23 @@ const PublishModal: React.FC<PublishModalProps> = ({ open, articleId, onCancel, 
   };
 
   const handlePublishLocal = async () => {
+    if (selectedLocalPlatforms.length === 0) {
+      message.warning('请至少选择一个平台');
+      return;
+    }
     setPublishing(true);
     try {
-      const result = await apiService.publishLocal(articleId, selectedLocalPlatform);
+      const result = await apiService.publishLocal(articleId, selectedLocalPlatforms, selectedThemeId, customColor);
+      const succeeded = result.results.filter(r => r.success);
+      const failed = result.results.filter(r => !r.success);
+      if (succeeded.length > 0) {
+        message.success(`${succeeded.length} 个平台文件生成成功`);
+      }
+      failed.forEach(r => {
+        message.error(`${r.platform_name}: ${r.error_message || '生成失败'}`);
+      });
       if (result.success) {
-        message.success(result.output_path
-          ? `文件已保存: ${result.output_path}`
-          : '本地文件生成成功');
         onSuccess();
-      } else {
-        message.error(result.error_message || '生成失败');
       }
     } catch (e: any) {
       message.error(e.response?.data?.detail || '本地发布失败');
@@ -98,13 +125,15 @@ const PublishModal: React.FC<PublishModalProps> = ({ open, articleId, onCancel, 
 
   const footerAction = mode === 'local' ? (
     <Button key="local" type="primary" icon={<DownloadOutlined />} loading={publishing} onClick={handlePublish}>
-      生成本地文件
+      生成 {selectedLocalPlatforms.length} 个平台文件
     </Button>
   ) : (
     <Button key="cloud" type="primary" icon={<SendOutlined />} loading={publishing} onClick={handlePublish}>
       发布到 {selectedIds.length} 个平台
     </Button>
   );
+
+  const activeTheme = themes.find(t => t.id === selectedThemeId);
 
   return (
     <Modal
@@ -122,25 +151,75 @@ const PublishModal: React.FC<PublishModalProps> = ({ open, articleId, onCancel, 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
       ) : mode === 'local' ? (
-        <div style={{ maxHeight: 400, overflow: 'auto' }}>
-          {LOCAL_PLATFORMS.map(p => (
-            <div
-              key={p.name}
-              style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #f5f5f5',
-                cursor: 'pointer',
-                background: selectedLocalPlatform === p.name ? '#f6ffed' : undefined,
-                borderRadius: 6,
-              }}
-              onClick={() => setSelectedLocalPlatform(p.name)}
-            >
-              <Checkbox checked={selectedLocalPlatform === p.name}>
-                <PlatformIcon platformName={p.name} size={18} showText />
-              </Checkbox>
+        <>
+          <div style={{ maxHeight: 300, overflow: 'auto', marginBottom: 16 }}>
+            {LOCAL_PLATFORMS.map(p => (
+              <div
+                key={p.name}
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #f5f5f5',
+                  cursor: 'pointer',
+                  background: selectedLocalPlatforms.includes(p.name) ? '#f6ffed' : undefined,
+                  borderRadius: 6,
+                }}
+                onClick={() => setSelectedLocalPlatforms(prev =>
+                  prev.includes(p.name) ? prev.filter(n => n !== p.name) : [...prev, p.name]
+                )}
+              >
+                <Checkbox checked={selectedLocalPlatforms.includes(p.name)}>
+                  <PlatformIcon platformName={p.name} size={18} showText />
+                </Checkbox>
+              </div>
+            ))}
+          </div>
+
+          {themes.length > 0 && (
+            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+              <div style={{ marginBottom: 10, fontWeight: 500, color: '#333', fontSize: 14 }}>排版主题</div>
+              <Radio.Group
+                value={selectedThemeId}
+                onChange={e => { setSelectedThemeId(e.target.value); setCustomColor(undefined); }}
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}
+              >
+                {themes.map(t => (
+                  <Radio.Button key={t.id} value={t.id} style={{ borderRadius: 6 }}>
+                    <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: t.primary_color, marginRight: 6, verticalAlign: 'middle' }} />
+                    {t.name}
+                  </Radio.Button>
+                ))}
+              </Radio.Group>
+
+              {activeTheme && (
+                <div style={{ marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, color: '#999' }}>{activeTheme.description}</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, color: '#666', whiteSpace: 'nowrap' }}>主题色</span>
+                {PRESET_COLORS.map(c => (
+                  <div
+                    key={c}
+                    onClick={() => setCustomColor(c === customColor ? undefined : c)}
+                    style={{
+                      width: 24, height: 24, borderRadius: '50%', background: c,
+                      cursor: 'pointer', border: customColor === c ? '2px solid #333' : '2px solid transparent',
+                      transition: 'border 0.2s',
+                    }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={customColor || activeTheme?.primary_color || '#07C160'}
+                  onChange={e => setCustomColor(e.target.value)}
+                  style={{ width: 24, height: 24, border: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%' }}
+                  title="自定义颜色"
+                />
+              </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       ) : accounts.length === 0 ? (
         <Empty description="暂无已绑定的平台账号，请先在平台管理中绑定" />
       ) : (

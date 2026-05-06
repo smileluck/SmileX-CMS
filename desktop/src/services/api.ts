@@ -175,8 +175,13 @@ class ApiService {
     return data;
   }
 
-  async publishLocal(articleId: number, platformName: string): Promise<{ success: boolean; output_path?: string; error_message?: string }> {
-    const { data } = await this.client.post('/publish/local', { article_id: articleId, platform_name: platformName });
+  async publishLocal(articleId: number, platformNames: string[], themeId?: string, primaryColor?: string): Promise<{ success: boolean; results: Array<{ platform_name: string; success: boolean; output_path?: string; error_message?: string }> }> {
+    const { data } = await this.client.post('/publish/local', { article_id: articleId, platform_names: platformNames, theme_id: themeId || 'classic', primary_color: primaryColor || undefined });
+    return data;
+  }
+
+  async getThemes(): Promise<Array<{ id: string; name: string; description: string; primary_color: string }>> {
+    const { data } = await this.client.get('/publish/themes');
     return data;
   }
 

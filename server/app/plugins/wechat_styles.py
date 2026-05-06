@@ -113,17 +113,19 @@ def _merge_style(existing: str | None, extra: dict[str, str]) -> str:
 
 
 class _StyleInjector(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, style_map: dict[str, dict[str, str]], code_block_style: dict[str, str] | None = None) -> None:
         super().__init__()
         self._parts: list[str] = []
         self._in_pre = 0
+        self._style_map = style_map
+        self._code_block_style = code_block_style or _CODE_BLOCK_STYLE
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        style_rules = WECHAT_ELEMENT_STYLES.get(tag)
+        style_rules = self._style_map.get(tag)
 
         # <code> inside <pre> gets code-block style instead of inline code style
         if tag == "code" and self._in_pre:
-            style_rules = _CODE_BLOCK_STYLE
+            style_rules = self._code_block_style
 
         filtered: list[tuple[str, str | None]] = []
         existing_style: str | None = None
@@ -175,7 +177,7 @@ class _StyleInjector(HTMLParser):
         return "".join(self._parts)
 
 
-def apply_inline_styles(html: str) -> str:
-    injector = _StyleInjector()
+def apply_inline_styles(html: str, style_map: dict[str, dict[str, str]] | None = None, code_block_style: dict[str, str] | None = None) -> str:
+    injector = _StyleInjector(style_map or WECHAT_ELEMENT_STYLES, code_block_style)
     injector.feed(html)
     return injector.get_result()

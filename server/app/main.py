@@ -12,6 +12,8 @@ from .plugins.xiaohongshu import XiaohongshuPlugin
 from .plugins.bilibili import BilibiliPlugin
 from .plugins.douyin import DouyinPlugin, DouyinArticlePlugin, DouyinVideoPlugin
 from .plugins.wechat_channels import WeChatChannelsPlugin
+from .plugins.zhihu import ZhihuPlugin
+from .plugins.juejin import JuejinPlugin
 from .config import BASE_STORAGE_DIR, CORS_ORIGINS
 from .dependencies import get_current_user_for_files
 
@@ -28,6 +30,8 @@ async def lifespan(app: FastAPI):
     PluginRegistry.register(DouyinArticlePlugin())
     PluginRegistry.register(DouyinVideoPlugin())
     PluginRegistry.register(WeChatChannelsPlugin())
+    PluginRegistry.register(ZhihuPlugin())
+    PluginRegistry.register(JuejinPlugin())
     yield
 
 

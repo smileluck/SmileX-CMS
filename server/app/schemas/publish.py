@@ -11,13 +11,21 @@ class PublishTaskCreate(BaseModel):
 
 class PublishLocalRequest(BaseModel):
     article_id: int
+    platform_names: List[str]
+    theme_id: str = "classic"
+    primary_color: Optional[str] = None
+
+
+class PublishLocalResultItem(BaseModel):
     platform_name: str
+    success: bool
+    output_path: Optional[str] = None
+    error_message: Optional[str] = None
 
 
 class PublishLocalResponse(BaseModel):
     success: bool
-    output_path: Optional[str] = None
-    error_message: Optional[str] = None
+    results: List[PublishLocalResultItem] = []
 
 
 class PublishTaskResponse(BaseModel):

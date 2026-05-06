@@ -29,6 +29,14 @@ const platformIconMap: Record<string, { color: string; svg: string }> = {
     color: '#000000',
     svg: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1 0-5.78 2.92 2.92 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.57 6.33 6.33 0 0 0 9.37 22a6.33 6.33 0 0 0 6.36-6.22V8.79a8.18 8.18 0 0 0 3.86.96V6.69z"/></svg>',
   },
+  zhihu: {
+    color: '#175199',
+    svg: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M5.721 0C2.251 0 0 2.25 0 5.719V18.28C0 21.751 2.252 24 5.721 24h12.56C21.751 24 24 21.75 24 18.281V5.72C24 2.249 21.75 0 18.281 0zm1.964 4.078h5.202L12.3 6.32H9.494c.074.222.166.434.276.634.222.4.52.76.888 1.072a5.26 5.26 0 0 0 1.488-.806l1.046 1.506a7.076 7.076 0 0 1-1.78 1.042c.326.13.668.236 1.022.316l-.504 1.928a8.6 8.6 0 0 1-2.128-.78 8.916 8.916 0 0 1-2.266.87l-.632-1.882a6.89 6.89 0 0 0 1.188-.382 6.228 6.228 0 0 1-1.11-1.508 6.282 6.282 0 0 1-.672-2.092H5.112zm7.706.39h2.064v5.49h-2.064zm3.228 0h2.064v5.49h-2.064zM7.07 12.49h5.98v6.03H7.07zm7.294 0h5.424v6.03h-5.424z"/></svg>',
+  },
+  juejin: {
+    color: '#1e80ff',
+    svg: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+  },
 };
 
 export const platformNameMap: Record<string, string> = {
@@ -39,6 +47,8 @@ export const platformNameMap: Record<string, string> = {
   douyin: '抖音',
   douyin_article: '抖音',
   douyin_video: '抖音',
+  zhihu: '知乎',
+  juejin: '掘金',
 };
 
 export const platformColorMap: Record<string, string> = Object.fromEntries(

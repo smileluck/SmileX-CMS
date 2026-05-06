@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"from server.app.schemas.media import MediaResponse; print\\('Schema OK'\\)\")"
+      "Bash(python -c \"from server.app.schemas.media import MediaResponse; print\\('Schema OK'\\)\")",
+      "WebSearch"
     ]
   }
 }

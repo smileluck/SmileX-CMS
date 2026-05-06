@@ -14,6 +14,8 @@ from ..schemas.publish import (
     PublishTaskResponse,
     PublishLogResponse,
     PublishBatchResponse,
+    PublishLocalRequest,
+    PublishLocalResponse,
 )
 from ..dependencies import get_current_user
 from ..plugins.registry import PluginRegistry
@@ -21,6 +23,32 @@ from ..plugins.registry import PluginRegistry
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/publish", tags=["publish"])
+
+
+@router.post("/local", response_model=PublishLocalResponse)
+def publish_local(
+    req: PublishLocalRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    article = (
+        db.query(Article)
+        .filter(Article.id == req.article_id, Article.author_id == current_user.id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    plugin = PluginRegistry.get(req.platform_name)
+    if not plugin:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {req.platform_name}")
+
+    result = plugin.generate(article, {})
+    return PublishLocalResponse(
+        success=result.success,
+        output_path=result.output_path,
+        error_message=result.error_message,
+    )
 
 
 async def _execute_publish(task_id: int):

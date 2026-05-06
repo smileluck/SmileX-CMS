@@ -1,0 +1,181 @@
+"""WeChat MP inline styles for HTML content.
+
+Ported from desktop/src/utils/inlineStyles.ts (wechat_mp branch).
+WeChat strips <style> tags and class/id attributes, so all styles must be inline.
+"""
+
+from html.parser import HTMLParser
+
+WECHAT_ELEMENT_STYLES: dict[str, dict[str, str]] = {
+    "h1": {
+        "font-size": "22px", "font-weight": "700",
+        "margin-top": "24px", "margin-bottom": "16px",
+        "color": "#191919", "line-height": "1.4",
+        "border-bottom": "1px solid #eee", "padding-bottom": "8px",
+    },
+    "h2": {
+        "font-size": "20px", "font-weight": "700",
+        "margin-top": "20px", "margin-bottom": "14px",
+        "color": "#191919", "line-height": "1.4",
+    },
+    "h3": {
+        "font-size": "18px", "font-weight": "700",
+        "margin-top": "18px", "margin-bottom": "12px",
+        "color": "#191919", "line-height": "1.4",
+    },
+    "h4": {
+        "font-size": "16px", "font-weight": "700",
+        "margin-top": "16px", "margin-bottom": "10px",
+        "color": "#191919", "line-height": "1.4",
+    },
+    "h5": {
+        "font-size": "15px", "font-weight": "700",
+        "margin-top": "14px", "margin-bottom": "8px",
+        "color": "#191919", "line-height": "1.4",
+    },
+    "h6": {
+        "font-size": "14px", "font-weight": "700",
+        "margin-top": "12px", "margin-bottom": "8px",
+        "color": "#888", "line-height": "1.4",
+    },
+    "p": {
+        "margin": "0 0 16px", "font-size": "16px",
+        "line-height": "1.75", "letter-spacing": "1px", "color": "#333",
+    },
+    "strong": {"font-weight": "700", "color": "#191919"},
+    "em": {"font-style": "italic"},
+    "del": {"text-decoration": "line-through", "color": "#999"},
+    "a": {
+        "color": "#576b95", "text-decoration": "none",
+        "border-bottom": "1px solid #576b95",
+    },
+    "blockquote": {
+        "margin": "16px 0", "padding": "12px 16px",
+        "border-left": "3px solid #07C160",
+        "background": "#f7f7f7", "color": "#888", "font-size": "15px",
+    },
+    "code": {
+        "background": "#fff5f5", "color": "#ff502c",
+        "padding": "2px 6px", "border-radius": "3px", "font-size": "14px",
+        "font-family": "'Menlo','Monaco','Consolas',monospace",
+    },
+    "pre": {
+        "background": "#2b2b2b", "border-radius": "6px",
+        "padding": "16px", "margin": "16px 0", "overflow": "auto",
+    },
+    "ul": {
+        "margin": "10px 0", "padding-left": "24px",
+        "font-size": "16px", "line-height": "1.75",
+        "letter-spacing": "1px", "color": "#333",
+    },
+    "ol": {
+        "margin": "10px 0", "padding-left": "24px",
+        "font-size": "16px", "line-height": "1.75",
+        "letter-spacing": "1px", "color": "#333",
+    },
+    "li": {"margin": "6px 0"},
+    "img": {"max-width": "100%", "border-radius": "4px", "margin": "12px 0"},
+    "hr": {"border": "none", "border-top": "1px solid #eee", "margin": "24px 0"},
+    "table": {
+        "width": "100%", "border-collapse": "collapse",
+        "margin": "16px 0", "font-size": "15px",
+    },
+    "th": {
+        "border": "1px solid #eee", "padding": "8px 12px",
+        "text-align": "left", "background": "#f7f7f7",
+        "font-weight": "600", "color": "#191919",
+    },
+    "td": {
+        "border": "1px solid #eee", "padding": "8px 12px",
+        "text-align": "left",
+    },
+}
+
+_CODE_BLOCK_STYLE: dict[str, str] = {
+    "color": "#d4d4d4",
+    "font-family": "'Menlo','Monaco','Consolas',monospace",
+    "white-space": "pre",
+}
+
+_VOID_ELEMENTS = frozenset({
+    "area", "base", "br", "col", "embed", "hr", "img",
+    "input", "link", "meta", "param", "source", "track", "wbr",
+})
+
+
+def _dict_to_style(styles: dict[str, str]) -> str:
+    return "; ".join(f"{k}: {v}" for k, v in styles.items())
+
+
+def _merge_style(existing: str | None, extra: dict[str, str]) -> str:
+    new = _dict_to_style(extra)
+    return f"{existing}; {new}" if existing else new
+
+
+class _StyleInjector(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._parts: list[str] = []
+        self._in_pre = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        style_rules = WECHAT_ELEMENT_STYLES.get(tag)
+
+        # <code> inside <pre> gets code-block style instead of inline code style
+        if tag == "code" and self._in_pre:
+            style_rules = _CODE_BLOCK_STYLE
+
+        filtered: list[tuple[str, str | None]] = []
+        existing_style: str | None = None
+        for name, value in attrs:
+            if name in ("class", "id"):
+                continue
+            if name == "style":
+                existing_style = value
+                continue
+            filtered.append((name, value))
+
+        if style_rules is not None:
+            merged = _merge_style(existing_style, style_rules)
+            filtered.append(("style", merged))
+        elif existing_style:
+            filtered.append(("style", existing_style))
+
+        if tag == "pre":
+            self._in_pre += 1
+
+        attr_str = "".join(
+            f' {n}="{v}"' if v is not None else f" {n}"
+            for n, v in filtered
+        )
+        if tag in _VOID_ELEMENTS:
+            self._parts.append(f"<{tag}{attr_str} />")
+        else:
+            self._parts.append(f"<{tag}{attr_str}>")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "pre" and self._in_pre:
+            self._in_pre -= 1
+        if tag not in _VOID_ELEMENTS:
+            self._parts.append(f"</{tag}>")
+
+    def handle_data(self, data: str) -> None:
+        self._parts.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        self._parts.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        self._parts.append(f"&#{name};")
+
+    def handle_comment(self, data: str) -> None:
+        self._parts.append(f"<!--{data}-->")
+
+    def get_result(self) -> str:
+        return "".join(self._parts)
+
+
+def apply_inline_styles(html: str) -> str:
+    injector = _StyleInjector()
+    injector.feed(html)
+    return injector.get_result()

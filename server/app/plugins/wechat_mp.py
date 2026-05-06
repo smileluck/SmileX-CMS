@@ -5,9 +5,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
+import mistune
 
 from ..config import BASE_STORAGE_DIR
-from .base import BasePublishPlugin, PublishResult
+from .base import BasePublishPlugin, GenerateResult, PublishResult
+from .wechat_styles import apply_inline_styles
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +176,27 @@ class WeChatMPPlugin(BasePublishPlugin):
                     )
                 return media_id
 
+    def _save_published_html(self, article, html_content: str) -> Optional[str]:
+        article_dir = self._resolve_article_dir(article)
+        if not article_dir:
+            return None
+        try:
+            out_dir = article_dir / "published" / self.platform_name
+            out_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            out_file = out_dir / f"{ts}.html"
+            out_file.write_text(html_content, encoding="utf-8")
+            logger.info("Saved published HTML to %s", out_file)
+            return str(out_file)
+        except Exception as e:
+            logger.warning("Failed to save published HTML: %s", e)
+            return None
+
+    def _convert_markdown_to_html(self, markdown_content: str) -> str:
+        md = mistune.create_markdown(plugins=["table", "strikethrough"])
+        html = md(markdown_content)
+        return apply_inline_styles(html)
+
     async def _add_draft(
         self, access_token: str, article, thumb_media_id: str, content: str
     ) -> str:
@@ -215,6 +238,34 @@ class WeChatMPPlugin(BasePublishPlugin):
                 )
             return data.get("publish_id", "")
 
+    @staticmethod
+    def _resolve_image_paths_for_local(markdown_content: str) -> str:
+        def _replace(match: re.Match) -> str:
+            alt, url = match.group(1), match.group(2)
+            if url.startswith("http://") or url.startswith("https://"):
+                return match.group(0)
+            clean = url.lstrip("./")
+            return f"![{alt}](../../{clean})"
+
+        return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", _replace, markdown_content)
+
+    def generate(self, article, options: Dict[str, Any]) -> GenerateResult:
+        content_override = options.get("_content_override")
+        if content_override:
+            content = content_override
+        else:
+            content = self._resolve_image_paths_for_local(article.content or "")
+        try:
+            html_content = self._convert_markdown_to_html(content)
+        except Exception as e:
+            return GenerateResult(success=False, error_message=str(e))
+        output_path = self._save_published_html(article, html_content)
+        return GenerateResult(
+            success=True,
+            output_path=output_path,
+            content=html_content,
+        )
+
     async def publish(self, article, account, options: Dict[str, Any]) -> PublishResult:
         db = options.get("_db")
         try:
@@ -230,6 +281,9 @@ class WeChatMPPlugin(BasePublishPlugin):
             logger.warning("Failed to upload content images: %s", e)
             content = article.content or ""
 
+        gen = self.generate(article, {"_content_override": content})
+        html_content = gen.content if gen.success else content
+
         try:
             thumb_media_id = await self._upload_thumb_media(access_token, article)
         except Exception as e:
@@ -238,7 +292,7 @@ class WeChatMPPlugin(BasePublishPlugin):
 
         try:
             media_id = await self._add_draft(
-                access_token, article, thumb_media_id, content
+                access_token, article, thumb_media_id, html_content
             )
         except Exception as e:
             return PublishResult(success=False, error_message=f"创建草稿失败: {e}")

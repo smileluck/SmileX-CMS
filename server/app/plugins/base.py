@@ -12,11 +12,25 @@ class PublishResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class GenerateResult:
+    success: bool
+    output_path: Optional[str] = None
+    content: Optional[str] = None
+    error_message: Optional[str] = None
+
+
 class BasePublishPlugin(ABC):
     platform_name: str = ""
     display_name: str = ""
     supported_types: List[str] = []
     auth_method: str = "oauth"
+
+    def generate(self, article, options: Dict[str, Any]) -> GenerateResult:
+        return GenerateResult(
+            success=False,
+            error_message=f"{self.display_name} local generation not yet supported",
+        )
 
     @abstractmethod
     async def publish(self, article, account, options: Dict[str, Any]) -> PublishResult:

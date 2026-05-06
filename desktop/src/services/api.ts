@@ -175,6 +175,11 @@ class ApiService {
     return data;
   }
 
+  async publishLocal(articleId: number, platformName: string): Promise<{ success: boolean; output_path?: string; error_message?: string }> {
+    const { data } = await this.client.post('/publish/local', { article_id: articleId, platform_name: platformName });
+    return data;
+  }
+
   async getPublishTasks(params?: { status?: string }): Promise<PublishTask[]> {
     const { data } = await this.client.get<PublishTask[]>('/publish/tasks', { params });
     return data;

@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, Row, Col, Statistic } from 'antd';
 import { FileTextOutlined, VideoCameraOutlined, CloudUploadOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
+import { fetchArticles } from '../store/articleSlice';
+import { fetchPublishTasks } from '../store/publishSlice';
 
 const Dashboard: React.FC = () => {
+  const dispatch = useDispatch();
   const { articles } = useSelector((state: RootState) => state.article);
   const { tasks } = useSelector((state: RootState) => state.publish);
+
+  useEffect(() => {
+    dispatch(fetchArticles({}));
+    dispatch(fetchPublishTasks());
+  }, [dispatch]);
 
   return (
     <div>

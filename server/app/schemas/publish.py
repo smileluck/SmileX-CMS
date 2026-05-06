@@ -9,6 +9,17 @@ class PublishTaskCreate(BaseModel):
     publish_options: Optional[Dict[str, Dict[str, Any]]] = None
 
 
+class PublishLocalRequest(BaseModel):
+    article_id: int
+    platform_name: str
+
+
+class PublishLocalResponse(BaseModel):
+    success: bool
+    output_path: Optional[str] = None
+    error_message: Optional[str] = None
+
+
 class PublishTaskResponse(BaseModel):
     id: int
     article_id: int

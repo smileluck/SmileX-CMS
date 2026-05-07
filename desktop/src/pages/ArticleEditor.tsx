@@ -386,11 +386,13 @@ const ArticleEditor: React.FC = () => {
         const newStart = start + prefixLen + before.length;
         const newEnd = newStart + (selectedText || placeholder || '').length;
         requestAnimationFrame(() => {
-          if (textareaRef.current) {
-            textareaRef.current.selectionStart = newStart;
-            textareaRef.current.selectionEnd = newEnd;
-            textareaRef.current.focus();
-          }
+          requestAnimationFrame(() => {
+            if (textareaRef.current) {
+              textareaRef.current.selectionStart = newStart;
+              textareaRef.current.selectionEnd = newEnd;
+              textareaRef.current.focus();
+            }
+          });
         });
         return;
       }

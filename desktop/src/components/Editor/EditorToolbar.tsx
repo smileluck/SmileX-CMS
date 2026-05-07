@@ -174,8 +174,8 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
       <ToolBtn
         icon={<CodeOutlined />}
         label="代码块"
-        before="```\n"
-        after="\n```"
+        before={'```' + String.fromCharCode(10)}
+        after={String.fromCharCode(10) + '```'}
         placeholder="code here"
         block
         description="代码块"

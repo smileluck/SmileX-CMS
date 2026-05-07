@@ -30,7 +30,7 @@ function getPlatformStyles(platform: string): Record<string, Record<string, stri
       'ul': { 'margin': '10px 0', 'padding-left': '24px', 'font-size': '16px', 'line-height': '1.75', 'letter-spacing': '1px', 'color': '#333' },
       'ol': { 'margin': '10px 0', 'padding-left': '24px', 'font-size': '16px', 'line-height': '1.75', 'letter-spacing': '1px', 'color': '#333' },
       'li': { 'margin': '6px 0' },
-      'img': { 'max-width': '100%', 'border-radius': '4px', 'margin': '12px 0' },
+      'img': { 'max-width': '100%', 'border-radius': '4px', 'display': 'block', 'margin': '12px auto' },
       'hr': { 'border': 'none', 'border-top': '1px solid #eee', 'margin': '24px 0' },
       'table': { 'width': '100%', 'border-collapse': 'collapse', 'margin': '16px 0', 'font-size': '15px' },
       'th': { 'border': '1px solid #eee', 'padding': '8px 12px', 'text-align': 'left', 'background': '#f7f7f7', 'font-weight': '600', 'color': '#191919' },
@@ -46,7 +46,7 @@ function getPlatformStyles(platform: string): Record<string, Record<string, stri
     'code': { 'background': '#f0f0f0', 'padding': '2px 6px', 'border-radius': '3px', 'font-size': '14px' },
     'pre': { 'background': '#f6f8fa', 'border-radius': '6px', 'padding': '16px', 'margin': '12px 0' },
     'blockquote': { 'margin': '16px 0', 'padding': '8px 16px', 'border-left': '4px solid #ddd', 'background': '#f9f9f9', 'color': '#666' },
-    'img': { 'max-width': '100%', 'border-radius': '4px' },
+    'img': { 'max-width': '100%', 'border-radius': '4px', 'display': 'block', 'margin': '12px auto' },
     'hr': { 'border': 'none', 'border-top': '1px solid #ddd', 'margin': '24px 0' },
   };
 }

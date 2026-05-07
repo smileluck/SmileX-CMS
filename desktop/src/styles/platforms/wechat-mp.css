@@ -84,7 +84,8 @@
 .preview-wechat-mp img {
   max-width: 100%;
   border-radius: 4px;
-  margin: 12px 0;
+  display: block;
+  margin: 12px auto;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 

@@ -55,7 +55,7 @@ XIAOHONGSHU_ELEMENT_STYLES: dict[str, dict[str, str]] = {
         "font-size": "17px", "line-height": "1.8", "color": "#333",
     },
     "li": {"margin": "6px 0"},
-    "img": {"max-width": "100%", "border-radius": "8px", "margin": "14px 0"},
+    "img": {"max-width": "100%", "border-radius": "8px", "display": "block", "margin": "14px auto"},
     "hr": {"border": "none", "border-top": "1px solid #eee", "margin": "20px 0"},
     "table": {
         "width": "100%", "border-collapse": "collapse",

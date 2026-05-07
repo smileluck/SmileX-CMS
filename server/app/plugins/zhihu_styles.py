@@ -55,7 +55,7 @@ ZHIHU_ELEMENT_STYLES: dict[str, dict[str, str]] = {
         "font-size": "15px", "line-height": "1.7", "color": "#333",
     },
     "li": {"margin": "5px 0"},
-    "img": {"max-width": "100%", "border-radius": "4px", "margin": "12px 0"},
+    "img": {"max-width": "100%", "border-radius": "4px", "display": "block", "margin": "12px auto"},
     "hr": {"border": "none", "border-top": "1px solid #e0e0e0", "margin": "24px 0"},
     "table": {
         "width": "100%", "border-collapse": "collapse",

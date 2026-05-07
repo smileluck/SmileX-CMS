@@ -88,7 +88,7 @@ _CLASSIC_STYLES: dict[str, dict[str, str]] = {
         "letter-spacing": "1px", "color": "#333",
     },
     "li": {"margin": "6px 0"},
-    "img": {"max-width": "100%", "border-radius": "4px", "margin": "12px 0"},
+    "img": {"max-width": "100%", "border-radius": "4px", "display": "block", "margin": "12px auto"},
     "hr": {"border": "none", "border-top": "1px solid #eee", "margin": "24px 0"},
     "table": {
         "width": "100%", "border-collapse": "collapse",
@@ -96,7 +96,7 @@ _CLASSIC_STYLES: dict[str, dict[str, str]] = {
     },
     "th": {
         "border": "1px solid #eee", "padding": "8px 12px",
-        "text-align": "left", "background": "#f0faf4",
+        "text-align": "left", "background": "#ebfaf2",
         "font-weight": "600", "color": "#191919",
     },
     "td": {
@@ -182,7 +182,7 @@ _GRACE_STYLES: dict[str, dict[str, str]] = {
         "letter-spacing": "0.5px", "color": "#333",
     },
     "li": {"margin": "6px 0"},
-    "img": {"max-width": "100%", "border-radius": "8px", "margin": "14px 0"},
+    "img": {"max-width": "100%", "border-radius": "8px", "display": "block", "margin": "14px auto"},
     "hr": {"border": "none", "border-top": "1px dashed #e8e8e8", "margin": "24px 0"},
     "table": {
         "width": "100%", "border-collapse": "collapse",
@@ -190,7 +190,7 @@ _GRACE_STYLES: dict[str, dict[str, str]] = {
     },
     "th": {
         "border": "1px solid #e8e8e8", "padding": "10px 14px",
-        "text-align": "left", "background": "#e8f5e9",
+        "text-align": "left", "background": "#eef8f4",
         "font-weight": "600", "color": "#35b378",
     },
     "td": {
@@ -267,7 +267,7 @@ _SIMPLE_STYLES: dict[str, dict[str, str]] = {
         "font-size": "16px", "line-height": "1.8", "color": "#333",
     },
     "li": {"margin": "5px 0"},
-    "img": {"max-width": "100%", "border-radius": "2px", "margin": "12px 0"},
+    "img": {"max-width": "100%", "border-radius": "2px", "display": "block", "margin": "12px auto"},
     "hr": {"border": "none", "border-top": "1px solid #eee", "margin": "20px 0"},
     "table": {
         "width": "100%", "border-collapse": "collapse",
@@ -275,7 +275,7 @@ _SIMPLE_STYLES: dict[str, dict[str, str]] = {
     },
     "th": {
         "border": "1px solid #eee", "padding": "8px 12px",
-        "text-align": "left", "background": "#f5f5f5",
+        "text-align": "left", "background": "#ececec",
         "font-weight": "600", "color": "#1a1a1a",
     },
     "td": {
@@ -326,8 +326,20 @@ def list_themes() -> list[Theme]:
     return list(_THEMES.values())
 
 
-_PRIMARY_COLOR_TARGETS = ("color", "border-left", "border-bottom", "background")
-_PRIMARY_COLOR_HIGHLIGHTS = ("strong", "em", "a", "blockquote", "th", "code")
+_PRIMARY_COLOR_TARGETS = ("color", "border-left", "border-bottom", "background", "border")
+_PRIMARY_COLOR_HIGHLIGHTS = ("strong", "em", "a", "blockquote", "th", "code", "table", "td")
+
+
+def _lighten_color(hex_color: str, factor: float = 0.92) -> str:
+    """Create a light tint of a hex color by mixing with white."""
+    hex_color = hex_color.lstrip("#")
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    r = int(r + (255 - r) * factor)
+    g = int(g + (255 - g) * factor)
+    b = int(b + (255 - b) * factor)
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def apply_primary_color(styles: dict[str, dict[str, str]], default_color: str, custom_color: str) -> dict[str, dict[str, str]]:
@@ -335,12 +347,17 @@ def apply_primary_color(styles: dict[str, dict[str, str]], default_color: str, c
     if custom_color.lower() == default_color.lower():
         return styles
 
+    default_light = _lighten_color(default_color)
+    custom_light = _lighten_color(custom_color)
+
     result: dict[str, dict[str, str]] = {}
     for tag, props in styles.items():
         new_props: dict[str, str] = {}
         for prop, val in props.items():
             if tag in _PRIMARY_COLOR_HIGHLIGHTS and prop in _PRIMARY_COLOR_TARGETS:
-                new_props[prop] = val.replace(default_color, custom_color)
+                new_val = val.replace(default_color, custom_color)
+                new_val = new_val.replace(default_light, custom_light)
+                new_props[prop] = new_val
             else:
                 new_props[prop] = val
         result[tag] = new_props

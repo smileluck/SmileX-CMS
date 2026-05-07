@@ -74,7 +74,7 @@ WECHAT_ELEMENT_STYLES: dict[str, dict[str, str]] = {
         "letter-spacing": "1px", "color": "#333",
     },
     "li": {"margin": "6px 0"},
-    "img": {"max-width": "100%", "border-radius": "4px", "margin": "12px 0"},
+    "img": {"max-width": "100%", "border-radius": "4px", "display": "block", "margin": "12px auto"},
     "hr": {"border": "none", "border-top": "1px solid #eee", "margin": "24px 0"},
     "table": {
         "width": "100%", "border-collapse": "collapse",

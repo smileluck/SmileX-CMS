@@ -1,13 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import PhoneFrame from './PhoneFrame';
-import '../../styles/platforms/common.css';
 
 export type PlatformKey = 'mobile' | 'desktop';
-
-const platformClassMap: Record<PlatformKey, string> = {
-  mobile: 'preview-common',
-  desktop: 'preview-common',
-};
 
 interface PlatformPreviewProps {
   html: string;
@@ -15,6 +9,12 @@ interface PlatformPreviewProps {
   syncScrollRef?: React.RefObject<HTMLDivElement | null>;
   syncEnabled?: boolean;
 }
+
+const baseStyle: React.CSSProperties = {
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+  wordWrap: 'break-word',
+  minHeight: '100%',
+};
 
 const PlatformPreview: React.FC<PlatformPreviewProps> = ({
   html,
@@ -41,13 +41,10 @@ const PlatformPreview: React.FC<PlatformPreviewProps> = ({
     return () => source.removeEventListener('scroll', handleScroll);
   }, [syncEnabled, syncScrollRef, handleScroll]);
 
-  const className = platformClassMap[platform] || 'preview-common';
-
   const contentEl = (
     <div
       ref={contentRef}
-      className={className}
-      style={{ minHeight: '100%' }}
+      style={baseStyle}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

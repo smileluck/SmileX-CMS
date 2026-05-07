@@ -60,6 +60,17 @@ class PublishLogResponse(BaseModel):
         from_attributes = True
 
 
+class PreviewHtmlRequest(BaseModel):
+    html: str
+    theme_id: str = "classic"
+    primary_color: Optional[str] = None
+    platform: Optional[str] = None
+
+
+class PreviewHtmlResponse(BaseModel):
+    html: str
+
+
 class PublishBatchResponse(BaseModel):
     tasks: List[PublishTaskResponse]
     total: int

@@ -185,6 +185,16 @@ class ApiService {
     return data;
   }
 
+  async previewStyledHtml(html: string, options?: { themeId?: string; primaryColor?: string; platform?: string }): Promise<{ html: string }> {
+    const { data } = await this.client.post<{ html: string }>('/publish/preview-html', {
+      html,
+      theme_id: options?.themeId || 'classic',
+      primary_color: options?.primaryColor || undefined,
+      platform: options?.platform || undefined,
+    });
+    return data;
+  }
+
   async getPublishTasks(params?: { status?: string }): Promise<PublishTask[]> {
     const { data } = await this.client.get<PublishTask[]>('/publish/tasks', { params });
     return data;

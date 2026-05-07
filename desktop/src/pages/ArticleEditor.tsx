@@ -1,21 +1,19 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Input, Button, Space, Select, message, Spin, Tooltip, Radio, Switch, Tag } from 'antd';
+import { Input, Button, Space, Select, message, Spin, Radio, Switch } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
 import { createArticle, updateArticle } from '../store/articleSlice';
 import { fetchTags } from '../store/tagSlice';
-import { fetchPlatforms } from '../store/platformSlice';
 import { apiService } from '../services/api';
 import { renderMarkdown } from '../utils/markdown';
-import { inlineStyles } from '../utils/inlineStyles';
 import { useAutoSave } from '../utils/useAutoSave';
 import { useHistory } from '../hooks/useHistory';
 import EditorToolbar from '../components/Editor/EditorToolbar';
 import VersionHistory from '../components/Editor/VersionHistory';
 import PlatformPreview from '../components/Preview/PlatformPreview';
-import PlatformIcon, { platformNameMap } from '../components/PlatformIcon';
+import PlatformIcon from '../components/PlatformIcon';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
 
 const MilkdownEditor: React.FC<{
@@ -172,13 +170,13 @@ const ArticleEditor: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { tags: allTags } = useSelector((state: RootState) => state.tag);
-  const { accounts: platformAccounts } = useSelector((state: RootState) => state.platform);
   const [title, setTitle] = useState('');
   const [content, setContentRaw] = useState('');
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id);
-  const [previewHtml, setPreviewHtml] = useState('');
+  const [rawHtml, setRawHtml] = useState('');
+  const [styledHtml, setStyledHtml] = useState('');
   const [articleId, setArticleId] = useState<number | null>(id ? Number(id) : null);
   const [platform, setPlatform] = useState<PlatformKey>('mobile');
   const [syncScroll, setSyncScroll] = useState(true);
@@ -186,6 +184,10 @@ const ArticleEditor: React.FC = () => {
   const [editMode, setEditMode] = useState<'wysiwyg' | 'markdown'>('markdown');
   const [pendingImages, setPendingImages] = useState<{ mediaId: number; originalPath: string }[]>([]);
   const [articleFilePath, setArticleFilePath] = useState<string | null>(null);
+  const [selectedThemeId, setSelectedThemeId] = useState('classic');
+  const [customColor, setCustomColor] = useState<string | undefined>(undefined);
+  const [previewPlatform, setPreviewPlatform] = useState('wechat_mp');
+  const [themes, setThemes] = useState<Array<{ id: string; name: string; description: string; primary_color: string }>>([]);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const markSavedRef = useRef<(() => void) | null>(null);
@@ -205,7 +207,7 @@ const ArticleEditor: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchTags());
-    dispatch(fetchPlatforms());
+    apiService.getThemes().then(setThemes).catch(() => {});
   }, [dispatch]);
 
   useEffect(() => {
@@ -230,14 +232,34 @@ const ArticleEditor: React.FC = () => {
     return () => { cancelled = true; };
   }, [id, navigate]);
 
+  // Stage 1: markdown → basic HTML (client-side, resolves image paths, 300ms debounce)
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       const html = await renderMarkdown(content, articleFilePath);
-      if (!cancelled) setPreviewHtml(html);
+      if (!cancelled) setRawHtml(html);
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [content, articleFilePath]);
+
+  // Stage 2: basic HTML → styled HTML (server-side, applies theme/platform styles)
+  useEffect(() => {
+    if (!rawHtml) {
+      setStyledHtml('');
+      return;
+    }
+    let cancelled = false;
+    apiService.previewStyledHtml(rawHtml, {
+      themeId: selectedThemeId,
+      primaryColor: customColor,
+      platform: previewPlatform,
+    }).then(result => {
+      if (!cancelled) setStyledHtml(result.html);
+    }).catch(() => {
+      if (!cancelled) setStyledHtml(rawHtml);
+    });
+    return () => { cancelled = true; };
+  }, [rawHtml, selectedThemeId, customColor, previewPlatform]);
 
   const autoSaveFn = useCallback(async () => {
     if (!title.trim() || !articleId) return;
@@ -384,12 +406,11 @@ const ArticleEditor: React.FC = () => {
   }, [editMode, setContent]);
 
   const handleCopyRichText = useCallback(async () => {
-    if (!previewHtml) {
+    if (!styledHtml) {
       message.warning('预览内容为空');
       return;
     }
     try {
-      const styledHtml = inlineStyles(previewHtml, platform);
       const blob = new Blob([styledHtml], { type: 'text/html' });
       const textBlob = new Blob([styledHtml], { type: 'text/plain' });
       await navigator.clipboard.write([
@@ -403,7 +424,7 @@ const ArticleEditor: React.FC = () => {
       console.error('Copy failed:', err);
       message.error('复制失败，请检查浏览器权限');
     }
-  }, [previewHtml, platform]);
+  }, [styledHtml]);
 
   const handleUndo = useCallback(() => {
     const prev = historyManager.undo();
@@ -472,7 +493,7 @@ const ArticleEditor: React.FC = () => {
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/articles')}>返回</Button>
         </Space>
         <Space>
-          <Button icon={<CopyOutlined />} onClick={handleCopyRichText} disabled={!previewHtml}>
+          <Button icon={<CopyOutlined />} onClick={handleCopyRichText} disabled={!styledHtml}>
             复制富文本
           </Button>
           {autoSaveStatus === 'saving' ? (
@@ -569,24 +590,64 @@ const ArticleEditor: React.FC = () => {
             justifyContent: 'space-between',
             gap: 8,
           }}>
-            <Radio.Group
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-              size="small"
-              optionType="button"
-              buttonStyle="solid"
-            >
-              <Radio.Button value="mobile">手机端</Radio.Button>
-              <Radio.Button value="desktop">桌面端</Radio.Button>
-            </Radio.Group>
+            <Space size={8}>
+              <Radio.Group
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                size="small"
+                optionType="button"
+                buttonStyle="solid"
+              >
+                <Radio.Button value="mobile">手机端</Radio.Button>
+                <Radio.Button value="desktop">桌面端</Radio.Button>
+              </Radio.Group>
+              {themes.length > 0 && (
+                <Radio.Group
+                  value={selectedThemeId}
+                  onChange={(e) => { setSelectedThemeId(e.target.value); setCustomColor(undefined); }}
+                  size="small"
+                  optionType="button"
+                  buttonStyle="solid"
+                >
+                  {themes.map(t => (
+                    <Radio.Button key={t.id} value={t.id}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: t.primary_color, marginRight: 4, verticalAlign: 'middle' }} />
+                      {t.name}
+                    </Radio.Button>
+                  ))}
+                </Radio.Group>
+              )}
+            </Space>
             <Space size={8}>
               <span style={{ fontSize: 12, color: '#999' }}>同步滚动</span>
               <Switch size="small" checked={syncScroll} onChange={setSyncScroll} />
             </Space>
           </div>
+          <div style={{
+            padding: '4px 12px',
+            borderBottom: '1px solid #f0f0f0',
+            background: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>预览平台:</span>
+            <Radio.Group
+              value={previewPlatform}
+              onChange={(e) => setPreviewPlatform(e.target.value)}
+              size="small"
+              optionType="button"
+            >
+              <Radio.Button value="wechat_mp"><PlatformIcon platformName="wechat_mp" size={12} /> 微信</Radio.Button>
+              <Radio.Button value="xiaohongshu"><PlatformIcon platformName="xiaohongshu" size={12} /> 小红书</Radio.Button>
+              <Radio.Button value="zhihu"><PlatformIcon platformName="zhihu" size={12} /> 知乎</Radio.Button>
+              <Radio.Button value="juejin"><PlatformIcon platformName="juejin" size={12} /> 掘金</Radio.Button>
+            </Radio.Group>
+          </div>
           {(() => {
-            const activePlatforms = platformAccounts.filter(a => a.status === 'active');
-            if (activePlatforms.length === 0) return null;
+            const activeTheme = themes.find(t => t.id === selectedThemeId);
+            if (previewPlatform !== 'wechat_mp' || !activeTheme) return null;
+            const PRESET_COLORS = ['#07C160', '#35b378', '#1a1a1a', '#1890ff', '#f5222d', '#722ed1', '#fa8c16', '#eb2f96'];
             return (
               <div style={{
                 padding: '4px 12px',
@@ -594,22 +655,34 @@ const ArticleEditor: React.FC = () => {
                 background: '#fff',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
-                flexWrap: 'wrap',
+                gap: 8,
               }}>
-                <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>已配置平台:</span>
-                {activePlatforms.map(a => (
-                  <Tag key={a.id} color="green" style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <PlatformIcon platformName={a.platform_name} size={12} />
-                    {platformNameMap[a.platform_name] || a.platform_name}: {a.account_name}
-                  </Tag>
+                <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>主题色</span>
+                {PRESET_COLORS.map(c => (
+                  <div
+                    key={c}
+                    onClick={() => setCustomColor(c === customColor ? undefined : c)}
+                    style={{
+                      width: 20, height: 20, borderRadius: '50%', background: c,
+                      cursor: 'pointer',
+                      border: customColor === c ? '2px solid #333' : '2px solid transparent',
+                      transition: 'border 0.2s',
+                    }}
+                  />
                 ))}
+                <input
+                  type="color"
+                  value={customColor || activeTheme.primary_color || '#07C160'}
+                  onChange={e => setCustomColor(e.target.value)}
+                  style={{ width: 20, height: 20, border: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%' }}
+                  title="自定义颜色"
+                />
               </div>
             );
           })()}
           <div style={{ flex: 1, overflow: 'auto', padding: 12, minHeight: 0, display: 'flex', justifyContent: 'center', background: '#f5f5f5' }}>
             <PlatformPreview
-              html={previewHtml}
+              html={styledHtml}
               platform={platform}
               syncScrollRef={editorContainerRef}
               syncEnabled={syncScroll}

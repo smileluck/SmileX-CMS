@@ -17,14 +17,44 @@ from ..schemas.publish import (
     PublishLocalRequest,
     PublishLocalResponse,
     PublishLocalResultItem,
+    PreviewHtmlRequest,
+    PreviewHtmlResponse,
 )
 from ..dependencies import get_current_user
 from ..plugins.registry import PluginRegistry
-from ..plugins.themes import list_themes
+from ..plugins.themes import apply_primary_color, get_theme, list_themes
+from ..plugins.wechat_styles import apply_inline_styles
+from ..plugins.xiaohongshu_styles import XIAOHONGSHU_ELEMENT_STYLES, XIAOHONGSHU_CODE_BLOCK_STYLE
+from ..plugins.zhihu_styles import ZHIHU_ELEMENT_STYLES, ZHIHU_CODE_BLOCK_STYLE
+from ..plugins.juejin_styles import JUEJIN_ELEMENT_STYLES, JUEJIN_CODE_BLOCK_STYLE
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/publish", tags=["publish"])
+
+_PLATFORM_STYLES = {
+    "xiaohongshu": (XIAOHONGSHU_ELEMENT_STYLES, XIAOHONGSHU_CODE_BLOCK_STYLE),
+    "zhihu": (ZHIHU_ELEMENT_STYLES, ZHIHU_CODE_BLOCK_STYLE),
+    "juejin": (JUEJIN_ELEMENT_STYLES, JUEJIN_CODE_BLOCK_STYLE),
+}
+
+
+@router.post("/preview-html", response_model=PreviewHtmlResponse)
+def preview_html(
+    req: PreviewHtmlRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if req.platform and req.platform in _PLATFORM_STYLES:
+        style_map, code_block_style = _PLATFORM_STYLES[req.platform]
+    else:
+        theme = get_theme(req.theme_id) or get_theme("classic")
+        style_map = theme.styles
+        code_block_style = theme.code_block_style
+        if req.primary_color:
+            style_map = apply_primary_color(style_map, theme.primary_color, req.primary_color)
+
+    styled = apply_inline_styles(req.html, style_map, code_block_style)
+    return PreviewHtmlResponse(html=styled)
 
 
 @router.get("/themes")

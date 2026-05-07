@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Button, Tooltip, Upload, Dropdown, Space, Popover } from 'antd';
+import { Button, Tooltip, Dropdown, Space, Popover } from 'antd';
 import {
   BoldOutlined,
   ItalicOutlined,
@@ -25,7 +25,7 @@ import type { HistoryEntry } from '../../hooks/useHistory';
 
 interface EditorToolbarProps {
   onInsertMarkdown: (before: string, after?: string, placeholder?: string, block?: boolean, description?: string) => void;
-  onImageUpload: (file: File) => void;
+  onImageUpload: (file: File, role?: 'content' | 'cover' | 'gallery') => void;
   editorReady: boolean;
   editMode?: 'wysiwyg' | 'markdown';
   onToggleEditMode?: () => void;
@@ -181,15 +181,27 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
         description="代码块"
       />
       <ToolBtn icon={<LinkOutlined />} label="链接 (Ctrl+K)" before="[" after="](url)" placeholder="链接文本" description="链接" />
-      <Upload
-        accept="image/*"
-        showUploadList={false}
-        beforeUpload={(file) => { onImageUpload(file); return false; }}
-      >
+      <Dropdown trigger={['click']} menu={{
+        items: [
+          { key: 'content', label: '插入图片', icon: <PictureOutlined /> },
+          { key: 'cover', label: '插入封面图', icon: <PictureOutlined /> },
+          { key: 'gallery', label: '插入轮播图', icon: <PictureOutlined /> },
+        ],
+        onClick: ({ key }) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) onImageUpload(file, key as 'content' | 'cover' | 'gallery');
+          };
+          input.click();
+        },
+      }}>
         <Tooltip title="插入图片">
           <Button type="text" size="small" icon={<PictureOutlined />} disabled={disabled} />
         </Tooltip>
-      </Upload>
+      </Dropdown>
       <ToolBtn icon={<TableOutlined />} label="表格" before={
 `
 | 列1 | 列2 | 列3 |

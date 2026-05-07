@@ -302,16 +302,17 @@ const ArticleEditor: React.FC = () => {
     }
   }, [doSave, navigate, articleId, title]);
 
-  const handleImageUpload = useCallback(async (file: File) => {
+  const handleImageUpload = useCallback(async (file: File, role?: 'content' | 'cover' | 'gallery') => {
     try {
       let imgMd: string;
+      const altText = role === 'cover' ? '封面' : role === 'gallery' ? '轮播' : file.name;
       if (articleId) {
         const media = await apiService.uploadToArticle(articleId, file);
         const imgPath = media.markdown_path || `images/${media.file_path.split('/').pop()}`;
-        imgMd = `![${file.name}](./${imgPath})`;
+        imgMd = `![${altText}](./${imgPath})`;
       } else {
         const media = await apiService.uploadFile(file);
-        imgMd = `![${file.name}](${media.file_path})`;
+        imgMd = `![${altText}](${media.file_path})`;
         setPendingImages(prev => [...prev, { mediaId: media.id, originalPath: media.file_path }]);
       }
 

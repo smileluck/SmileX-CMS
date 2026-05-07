@@ -18,6 +18,7 @@ class GenerateResult:
     output_path: Optional[str] = None
     content: Optional[str] = None
     error_message: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class BasePublishPlugin(ABC):

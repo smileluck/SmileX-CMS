@@ -17,6 +17,7 @@ import VersionHistory from '../components/Editor/VersionHistory';
 import PlatformPreview from '../components/Preview/PlatformPreview';
 import PlatformIcon from '../components/PlatformIcon';
 import PlatformMetaPanel from '../components/Editor/PlatformMetaPanel';
+import ImageCarousel from '../components/Preview/ImageCarousel';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
 
 const MilkdownEditor: React.FC<{
@@ -269,6 +270,8 @@ const ArticleEditor: React.FC = () => {
     return () => { cancelled = true; };
   }, [rawHtml, selectedThemeId, customColor, previewPlatform]);
 
+  const displayHtml = styledHtml;
+
   const autoSaveFn = useCallback(async () => {
     if (!title.trim() || !articleId) return;
     const data: any = { title, content, tag_ids: tagIds };
@@ -346,13 +349,9 @@ const ArticleEditor: React.FC = () => {
 
       if (previewPlatform === 'xiaohongshu' && (role === 'cover' || role === 'gallery')) {
         const currentMeta = extractPlatformMeta(content, 'xiaohongshu');
-        if (role === 'cover') {
-          currentMeta.cover = `./${imgPath}`;
-        } else {
-          currentMeta.gallery = [...currentMeta.gallery, `./${imgPath}`];
-        }
-        setContent(setPlatformMeta(content, 'xiaohongshu', currentMeta), role === 'cover' ? '设置封面图' : '添加轮播图');
-        message.success(role === 'cover' ? '封面图已设置' : '轮播图已添加');
+        currentMeta.images = [...currentMeta.images, `./${imgPath}`];
+        setContent(setPlatformMeta(content, 'xiaohongshu', currentMeta), '添加小红书图片');
+        message.success('图片已添加');
         return;
       }
 
@@ -712,11 +711,17 @@ const ArticleEditor: React.FC = () => {
           })()}
           <div style={{ flex: 1, overflow: 'auto', padding: 12, minHeight: 0, display: 'flex', justifyContent: 'center', background: '#f5f5f5' }}>
             <PlatformPreview
-              html={styledHtml}
+              html={displayHtml}
               platform={platform}
               syncScrollRef={editorContainerRef}
               syncEnabled={syncScroll}
-            />
+            >
+              {previewPlatform === 'xiaohongshu' && xhsMeta.images.length > 0 && (
+                <ImageCarousel
+                  images={xhsMeta.images.map(src => ({ src: apiService.getMediaUrl(src, articleFilePath || undefined) }))}
+                />
+              )}
+            </PlatformPreview>
           </div>
         </div>
       </div>

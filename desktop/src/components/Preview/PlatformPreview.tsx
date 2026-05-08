@@ -8,6 +8,7 @@ interface PlatformPreviewProps {
   platform: PlatformKey;
   syncScrollRef?: React.RefObject<HTMLDivElement | null>;
   syncEnabled?: boolean;
+  children?: React.ReactNode;
 }
 
 const baseStyle: React.CSSProperties = {
@@ -21,6 +22,7 @@ const PlatformPreview: React.FC<PlatformPreviewProps> = ({
   platform,
   syncScrollRef,
   syncEnabled = false,
+  children,
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -45,8 +47,10 @@ const PlatformPreview: React.FC<PlatformPreviewProps> = ({
     <div
       ref={contentRef}
       style={baseStyle}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    >
+      {children}
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
   );
 
   if (platform === 'desktop') {

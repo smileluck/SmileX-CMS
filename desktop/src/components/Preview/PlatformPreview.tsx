@@ -29,14 +29,14 @@ const PlatformPreview: React.FC<PlatformPreviewProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = useCallback(() => {
-    if (!syncEnabled || !syncScrollRef?.current || !contentRef.current) return;
+    if (!syncEnabled || !syncScrollRef?.current || !scrollContainerRef?.current) return;
 
     const source = syncScrollRef.current;
-    const target = contentRef.current;
+    const target = scrollContainerRef.current;
 
     const scrollRatio = source.scrollTop / (source.scrollHeight - source.clientHeight || 1);
     target.scrollTop = scrollRatio * (target.scrollHeight - target.clientHeight);
-  }, [syncEnabled, syncScrollRef]);
+  }, [syncEnabled, syncScrollRef, scrollContainerRef]);
 
   useEffect(() => {
     if (!syncEnabled || !syncScrollRef?.current) return;

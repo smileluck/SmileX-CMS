@@ -161,12 +161,11 @@ const MilkdownEditor: React.FC<{
     (editorRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
     if (editorContainerRef && node) {
       const parent = node.parentElement;
-      const grandparent = parent ? parent.parentElement : null;
-      (editorContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = grandparent as HTMLDivElement | null;
+      (editorContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = parent as HTMLDivElement | null;
     }
   }, [editorContainerRef]);
 
-  return <div ref={refCallback} style={{ height: '100%', overflow: 'hidden' }} />;
+  return <div ref={refCallback} style={{ minHeight: '100%' }} />;
 };
 
 const ArticleEditor: React.FC = () => {
@@ -193,6 +192,7 @@ const ArticleEditor: React.FC = () => {
   const [previewPlatform, setPreviewPlatform] = useState('wechat_mp');
   const [themes, setThemes] = useState<Array<{ id: string; name: string; description: string; primary_color: string }>>([]);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const editorScrollContainerRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [showBackTop, setShowBackTop] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -204,6 +204,13 @@ const ArticleEditor: React.FC = () => {
     el.addEventListener('scroll', handleScroll);
     return () => el.removeEventListener('scroll', handleScroll);
   });
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [content, editMode]);
   const markSavedRef = useRef<(() => void) | null>(null);
   const [currentVersionId, setCurrentVersionId] = useState<number | null>(null);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
@@ -594,7 +601,7 @@ const ArticleEditor: React.FC = () => {
             articleStoragePath={articleFilePath}
             onMetaChange={handleXhsMetaChange}
           />
-          <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+          <div ref={editorScrollContainerRef} style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {editMode === 'wysiwyg' ? (
               <MilkdownEditor value={content} onChange={(val) => setContent(val, '编辑内容')} editorContainerRef={editorContainerRef} articleId={articleId} articleFilePath={articleFilePath} onPendingImage={handlePendingImage} />
             ) : (
@@ -604,11 +611,12 @@ const ArticleEditor: React.FC = () => {
                 onChange={e => setContent(e.target.value, '输入文本')}
                 style={{
                   width: '100%',
-                  height: '100%',
+                  minHeight: '100%',
                   border: 'none',
                   outline: 'none',
                   resize: 'none',
                   padding: 16,
+                  overflow: 'hidden',
                   fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                   fontSize: 14,
                   lineHeight: 1.6,
@@ -725,7 +733,7 @@ const ArticleEditor: React.FC = () => {
             <PlatformPreview
               html={displayHtml}
               platform={platform}
-              syncScrollRef={editorContainerRef}
+              syncScrollRef={editorScrollContainerRef}
               syncEnabled={syncScroll}
               scrollContainerRef={previewContainerRef}
             >

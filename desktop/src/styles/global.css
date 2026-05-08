@@ -25,12 +25,12 @@ html, body, #root {
 }
 
 .milkdown {
-  height: 100%;
+  min-height: 100%;
   padding: 12px;
   outline: none;
 }
 
 .milkdown .editor {
-  height: 100%;
+  min-height: 100%;
   outline: none;
 }

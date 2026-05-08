@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Input, Button, Space, Select, message, Spin, Radio, Switch } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SaveOutlined, CopyOutlined, VerticalAlignTopOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
 import { createArticle, updateArticle } from '../store/articleSlice';
@@ -193,7 +193,17 @@ const ArticleEditor: React.FC = () => {
   const [previewPlatform, setPreviewPlatform] = useState('wechat_mp');
   const [themes, setThemes] = useState<Array<{ id: string; name: string; description: string; primary_color: string }>>([]);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [showBackTop, setShowBackTop] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => setShowBackTop(el.scrollTop > 300);
+    el.addEventListener('scroll', handleScroll);
+    return () => el.removeEventListener('scroll', handleScroll);
+  });
   const markSavedRef = useRef<(() => void) | null>(null);
   const [currentVersionId, setCurrentVersionId] = useState<number | null>(null);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
@@ -709,12 +719,15 @@ const ArticleEditor: React.FC = () => {
               </div>
             );
           })()}
-          <div style={{ flex: 1, overflow: 'auto', padding: 12, minHeight: 0, display: 'flex', justifyContent: 'center', background: '#f5f5f5' }}>
+          <div
+            style={{ flex: 1, overflow: 'hidden', padding: 12, minHeight: 0, display: 'flex', justifyContent: 'center', background: '#f5f5f5', position: 'relative' }}
+          >
             <PlatformPreview
               html={displayHtml}
               platform={platform}
               syncScrollRef={editorContainerRef}
               syncEnabled={syncScroll}
+              scrollContainerRef={previewContainerRef}
             >
               {previewPlatform === 'xiaohongshu' && xhsMeta.images.length > 0 && (
                 <ImageCarousel
@@ -722,6 +735,32 @@ const ArticleEditor: React.FC = () => {
                 />
               )}
             </PlatformPreview>
+            {showBackTop && (
+              <button
+                onClick={() => previewContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+                style={{
+                  position: 'absolute',
+                  bottom: 24,
+                  right: 24,
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: '#fff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 16,
+                  color: '#666',
+                  transition: 'opacity 0.2s',
+                }}
+                title="返回顶部"
+              >
+                <VerticalAlignTopOutlined />
+              </button>
+            )}
           </div>
         </div>
       </div>

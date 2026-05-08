@@ -3,7 +3,8 @@ import React from 'react';
 const PhoneFrame: React.FC<{
   children: React.ReactNode;
   platformLabel?: string;
-}> = ({ children, platformLabel }) => {
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+}> = ({ children, platformLabel, scrollContainerRef }) => {
   return (
     <div style={{
       display: 'flex',
@@ -51,7 +52,7 @@ const PhoneFrame: React.FC<{
             background: '#e0e0e0',
           }} />
         </div>
-        <div style={{
+        <div ref={scrollContainerRef} style={{
           height: 'calc(100% - 18px)',
           overflow: 'auto',
           padding: '0 16px 24px',

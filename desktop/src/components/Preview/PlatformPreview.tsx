@@ -8,6 +8,7 @@ interface PlatformPreviewProps {
   platform: PlatformKey;
   syncScrollRef?: React.RefObject<HTMLDivElement | null>;
   syncEnabled?: boolean;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
   children?: React.ReactNode;
 }
 
@@ -22,6 +23,7 @@ const PlatformPreview: React.FC<PlatformPreviewProps> = ({
   platform,
   syncScrollRef,
   syncEnabled = false,
+  scrollContainerRef,
   children,
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -55,21 +57,24 @@ const PlatformPreview: React.FC<PlatformPreviewProps> = ({
 
   if (platform === 'desktop') {
     return (
-      <div style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        padding: 24,
-        background: '#fff',
-        borderRadius: 8,
-      }}>
+      <div
+        ref={scrollContainerRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'auto',
+          padding: 24,
+          background: '#fff',
+          borderRadius: 8,
+        }}
+      >
         {contentEl}
       </div>
     );
   }
 
   return (
-    <PhoneFrame platformLabel="手机端预览">
+    <PhoneFrame platformLabel="手机端预览" scrollContainerRef={scrollContainerRef}>
       {contentEl}
     </PhoneFrame>
   );

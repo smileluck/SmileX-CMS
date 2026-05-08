@@ -171,15 +171,43 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
       <div style={{ width: 1, height: 16, background: '#e8e8e8', margin: '0 4px' }} />
 
-      <ToolBtn
-        icon={<CodeOutlined />}
-        label="代码块"
-        before={'```' + String.fromCharCode(10)}
-        after={String.fromCharCode(10) + '```'}
-        placeholder="code here"
-        block
-        description="代码块"
-      />
+      <Dropdown trigger={['click']} menu={{
+        items: [
+          { key: '', label: '纯文本' },
+          { type: 'divider' },
+          { key: 'javascript', label: 'JavaScript' },
+          { key: 'typescript', label: 'TypeScript' },
+          { key: 'python', label: 'Python' },
+          { key: 'java', label: 'Java' },
+          { key: 'php', label: 'PHP' },
+          { key: 'go', label: 'Go' },
+          { key: 'rust', label: 'Rust' },
+          { key: 'c', label: 'C' },
+          { key: 'cpp', label: 'C++' },
+          { key: 'sql', label: 'SQL' },
+          { key: 'bash', label: 'Bash / Shell' },
+          { key: 'html', label: 'HTML' },
+          { key: 'css', label: 'CSS' },
+          { key: 'json', label: 'JSON' },
+          { key: 'yaml', label: 'YAML' },
+          { key: 'xml', label: 'XML' },
+          { key: 'markdown', label: 'Markdown' },
+        ],
+        onClick: ({ key }) => {
+          const lang = key ? key : '';
+          onInsertMarkdown(
+            '```' + lang + String.fromCharCode(10),
+            String.fromCharCode(10) + '```',
+            'code here',
+            true,
+            key ? `代码块 (${key})` : '代码块'
+          );
+        },
+      }}>
+        <Tooltip title="代码块">
+          <Button type="text" size="small" icon={<CodeOutlined />} disabled={disabled} />
+        </Tooltip>
+      </Dropdown>
       <ToolBtn icon={<LinkOutlined />} label="链接 (Ctrl+K)" before="[" after="](url)" placeholder="链接文本" description="链接" />
       <Dropdown trigger={['click']} menu={{
         items: [

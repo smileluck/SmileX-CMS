@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Input, Button, Space, Select, message, Spin, Radio, Switch } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, CopyOutlined } from '@ant-design/icons';
@@ -10,10 +10,13 @@ import { apiService } from '../services/api';
 import { renderMarkdown } from '../utils/markdown';
 import { useAutoSave } from '../utils/useAutoSave';
 import { useHistory } from '../hooks/useHistory';
+import { extractPlatformMeta, setPlatformMeta } from '../utils/platformMetadata';
+import type { PlatformMeta } from '../utils/platformMetadata';
 import EditorToolbar from '../components/Editor/EditorToolbar';
 import VersionHistory from '../components/Editor/VersionHistory';
 import PlatformPreview from '../components/Preview/PlatformPreview';
 import PlatformIcon from '../components/PlatformIcon';
+import PlatformMetaPanel from '../components/Editor/PlatformMetaPanel';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
 
 const MilkdownEditor: React.FC<{
@@ -205,6 +208,11 @@ const ArticleEditor: React.FC = () => {
     });
   }, [historyManager]);
 
+  const xhsMeta = useMemo(() => extractPlatformMeta(content, 'xiaohongshu'), [content]);
+  const handleXhsMetaChange = useCallback((meta: PlatformMeta) => {
+    setContent(setPlatformMeta(content, 'xiaohongshu', meta), '更新小红书元数据');
+  }, [content, setContent]);
+
   useEffect(() => {
     dispatch(fetchTags());
     apiService.getThemes().then(setThemes).catch(() => {});
@@ -326,17 +334,30 @@ const ArticleEditor: React.FC = () => {
 
   const handleImageUpload = useCallback(async (file: File, role?: 'content' | 'cover' | 'gallery') => {
     try {
-      let imgMd: string;
-      const altText = role === 'cover' ? '封面' : role === 'gallery' ? '轮播' : file.name;
+      let imgPath: string;
       if (articleId) {
         const media = await apiService.uploadToArticle(articleId, file);
-        const imgPath = media.markdown_path || `images/${media.file_path.split('/').pop()}`;
-        imgMd = `![${altText}](./${imgPath})`;
+        imgPath = media.markdown_path || `images/${media.file_path.split('/').pop()}`;
       } else {
         const media = await apiService.uploadFile(file);
-        imgMd = `![${altText}](${media.file_path})`;
+        imgPath = media.file_path;
         setPendingImages(prev => [...prev, { mediaId: media.id, originalPath: media.file_path }]);
       }
+
+      if (previewPlatform === 'xiaohongshu' && (role === 'cover' || role === 'gallery')) {
+        const currentMeta = extractPlatformMeta(content, 'xiaohongshu');
+        if (role === 'cover') {
+          currentMeta.cover = `./${imgPath}`;
+        } else {
+          currentMeta.gallery = [...currentMeta.gallery, `./${imgPath}`];
+        }
+        setContent(setPlatformMeta(content, 'xiaohongshu', currentMeta), role === 'cover' ? '设置封面图' : '添加轮播图');
+        message.success(role === 'cover' ? '封面图已设置' : '轮播图已添加');
+        return;
+      }
+
+      const altText = role === 'cover' ? '封面' : role === 'gallery' ? '轮播' : file.name;
+      const imgMd = `![${altText}](${articleId ? './' : ''}${imgPath})`;
 
       if (editMode === 'markdown') {
         const textarea = textareaRef.current;
@@ -362,7 +383,7 @@ const ArticleEditor: React.FC = () => {
     } catch {
       message.error('图片上传失败');
     }
-  }, [articleId, editMode, setContent]);
+  }, [articleId, editMode, setContent, previewPlatform, content]);
 
   const handleInsertMarkdown = useCallback((before: string, after: string = '', placeholder: string = '', block: boolean = false, description: string = '插入内容') => {
     if (editMode === 'markdown') {
@@ -556,6 +577,13 @@ const ArticleEditor: React.FC = () => {
             currentIndex={historyManager.currentIndex}
             onJumpTo={handleJumpTo}
             onVersionHistory={articleId ? () => setVersionHistoryOpen(true) : undefined}
+          />
+          <PlatformMetaPanel
+            visible={previewPlatform === 'xiaohongshu'}
+            meta={xhsMeta}
+            articleId={articleId}
+            articleStoragePath={articleFilePath}
+            onMetaChange={handleXhsMetaChange}
           />
           <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {editMode === 'wysiwyg' ? (

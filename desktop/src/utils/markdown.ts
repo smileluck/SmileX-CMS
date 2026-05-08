@@ -2,15 +2,33 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import remarkRhype from 'remark-rehype';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
+import 'highlight.js/styles/github.css';
 import { apiService } from '../services/api';
+
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [
+      ...(defaultSchema.attributes?.code || []),
+      ['className', /^language-/],
+    ],
+    span: [
+      ...(defaultSchema.attributes?.span || []),
+      'className',
+    ],
+  },
+};
 
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
   .use(remarkRhype)
-  .use(rehypeSanitize)
+  .use(rehypeHighlight, { subset: false })
+  .use(rehypeSanitize, sanitizeSchema)
   .use(rehypeStringify);
 
 function resolveMediaUrl(url: string, articleStoragePath?: string | null): string {
@@ -39,6 +57,8 @@ function resolveMediaUrl(url: string, articleStoragePath?: string | null): strin
 
 export async function renderMarkdown(md: string, articleStoragePath?: string | null): Promise<string> {
   let processed = md;
+  // Strip platform metadata blocks (:::platform ... :::)
+  processed = processed.replace(/^:::\w+\s*\n[\s\S]*?\n:::\s*$/gm, '');
   processed = processed.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
     if (url.startsWith('http://') || url.startsWith('https://')) return _match;
     return `![${alt}](${resolveMediaUrl(url, articleStoragePath)})`;

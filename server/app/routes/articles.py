@@ -210,7 +210,7 @@ def get_articles_publish_summary(
 
     tasks = (
         db.query(PublishTask, PlatformAccount)
-        .join(PlatformAccount, PublishTask.platform_account_id == PlatformAccount.id)
+        .outerjoin(PlatformAccount, PublishTask.platform_account_id == PlatformAccount.id)
         .filter(PublishTask.article_id.in_(article_ids))
         .all()
     )
@@ -221,8 +221,8 @@ def get_articles_publish_summary(
             summary[task.article_id] = []
         summary[task.article_id].append(
             {
-                "platform_name": account.platform_name,
-                "account_name": account.account_name,
+                "platform_name": account.platform_name if account else task.platform_name,
+                "account_name": account.account_name if account else ("本地" if task.publish_method == "local" else ""),
                 "status": task.status,
                 "platform_post_url": task.platform_post_url,
                 "error_message": task.error_message,
@@ -406,7 +406,7 @@ def get_article_publish_status(
 
     tasks = (
         db.query(PublishTask, PlatformAccount)
-        .join(PlatformAccount, PublishTask.platform_account_id == PlatformAccount.id)
+        .outerjoin(PlatformAccount, PublishTask.platform_account_id == PlatformAccount.id)
         .filter(PublishTask.article_id == article_id)
         .all()
     )
@@ -415,8 +415,8 @@ def get_article_publish_status(
     for task, account in tasks:
         result.append(
             {
-                "platform_name": account.platform_name,
-                "account_name": account.account_name,
+                "platform_name": account.platform_name if account else task.platform_name,
+                "account_name": account.account_name if account else ("本地" if task.publish_method == "local" else ""),
                 "status": task.status,
                 "platform_post_url": task.platform_post_url,
                 "error_message": task.error_message,

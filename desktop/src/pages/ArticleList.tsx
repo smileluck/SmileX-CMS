@@ -1,7 +1,7 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Table, Tag, Space, Input, message, Modal, Tooltip, Select } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchArticles, deleteArticle } from '../store/articleSlice';
@@ -50,6 +50,22 @@ const ArticleList: React.FC = () => {
       .catch(() => {});
   }, [articles]);
 
+  const hasActiveTasks = useMemo(() => {
+    return Object.values(publishSummary).some(statuses =>
+      statuses.some(s => s.status === 'pending' || s.status === 'running')
+    );
+  }, [publishSummary]);
+
+  useEffect(() => {
+    if (!hasActiveTasks) return;
+    const timer = setInterval(() => {
+      apiService.getArticlesPublishSummary()
+        .then(data => setPublishSummary(data))
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [hasActiveTasks]);
+
   const handleDelete = (id: number) => {
     Modal.confirm({
       title: '确认删除',
@@ -82,11 +98,24 @@ const ArticleList: React.FC = () => {
 
   const renderPublishStatus = (articleId: number) => {
     const statuses = publishSummary[articleId];
-    if (!statuses || statuses.length === 0) return '-';
+    if (!statuses || statuses.length === 0) return (
+      <a onClick={() => navigate(`/publish/history?article_id=${articleId}`)} style={{ fontSize: 12, color: '#999' }}>
+        <HistoryOutlined /> 暂无记录
+      </a>
+    );
+
+    const latestMap = new Map<string, ArticlePublishStatus>();
+    for (const s of statuses) {
+      const key = `${s.platform_name}:${s.account_name}`;
+      if (!latestMap.has(key)) {
+        latestMap.set(key, s);
+      }
+    }
+    const latestStatuses = Array.from(latestMap.values());
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {statuses.map((s, i) => {
+        {latestStatuses.map((s, i) => {
           const tagInfo = statusTagMap[s.status] || { color: 'default', label: s.status };
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
@@ -108,6 +137,11 @@ const ArticleList: React.FC = () => {
             </div>
           );
         })}
+        {statuses.length > 0 && (
+          <a onClick={() => navigate(`/publish/history?article_id=${articleId}`)} style={{ fontSize: 11, color: '#1890ff' }}>
+            <HistoryOutlined /> 查看历史
+          </a>
+        )}
       </div>
     );
   };

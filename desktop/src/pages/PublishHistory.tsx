@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tag, Button, Space, Select, Input, message, Tooltip, Empty } from 'antd';
 import { ReloadOutlined, LinkOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchPublishTasks } from '../store/publishSlice';
@@ -39,11 +39,16 @@ const methodOptions = [
 const PublishHistory: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { tasks, total, isLoading } = useSelector((state: RootState) => state.publish);
 
   const [platformFilter, setPlatformFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [methodFilter, setMethodFilter] = useState<string>('');
+  const [articleIdFilter, setArticleIdFilter] = useState<number | undefined>(() => {
+    const id = searchParams.get('article_id');
+    return id ? parseInt(id, 10) : undefined;
+  });
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -51,16 +56,16 @@ const PublishHistory: React.FC = () => {
     const params: any = { skip: (page - 1) * pageSize, limit: pageSize };
     if (platformFilter) params.platform_name = platformFilter;
     if (statusFilter) params.status = statusFilter;
+    if (articleIdFilter) params.article_id = articleIdFilter;
     if (methodFilter) {
       if (methodFilter === 'local') {
         params.publish_method = 'local';
       } else {
-        // cloud: anything that isn't "local"
         params.publish_method = 'cloud';
       }
     }
     dispatch(fetchPublishTasks(params));
-  }, [dispatch, page, platformFilter, statusFilter, methodFilter]);
+  }, [dispatch, page, platformFilter, statusFilter, methodFilter, articleIdFilter]);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
@@ -147,8 +152,16 @@ const PublishHistory: React.FC = () => {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
-        <h1 style={{ margin: 0 }}>发布历史</h1>
-        <Button icon={<ReloadOutlined />} onClick={loadTasks}>刷新</Button>
+        <h1 style={{ margin: 0 }}>
+          发布历史
+          {articleIdFilter && <span style={{ fontSize: 14, fontWeight: 'normal', color: '#666', marginLeft: 8 }}>文章 #{articleIdFilter}</span>}
+        </h1>
+        <Space>
+          {articleIdFilter && (
+            <Button onClick={() => { setArticleIdFilter(undefined); setPage(1); }}>清除文章筛选</Button>
+          )}
+          <Button icon={<ReloadOutlined />} onClick={loadTasks}>刷新</Button>
+        </Space>
       </div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexShrink: 0, flexWrap: 'wrap' }}>
         <Select

@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { Button, Tooltip, Dropdown, Space, Popover } from 'antd';
+import React, { useCallback, useState } from 'react';
+import { Button, Tooltip, Dropdown, Space, Popover, InputNumber } from 'antd';
 import {
   BoldOutlined,
   ItalicOutlined,
@@ -58,6 +58,45 @@ function formatTimeAgo(ts: number): string {
   return `${Math.floor(diff / 3600000)}小时前`;
 }
 
+function generateTableMarkdown(rows: number, cols: number): {
+  before: string; after: string; placeholder: string; block: boolean; description: string;
+} {
+  const headerLine = '| ' + Array.from({ length: cols }, (_, i) => `列${i + 1}`).join(' | ') + ' |';
+  const sepLine = '| ' + Array.from({ length: cols }, () => '---').join(' | ') + ' |';
+
+  if (rows <= 1) {
+    const headers = Array.from({ length: cols }, (_, i) => `列${i + 1}`);
+    return {
+      before: '| ',
+      after: ' | ' + headers.slice(1).join(' | ') + ' |\n' + sepLine,
+      placeholder: headers[0],
+      block: true,
+      description: `插入 1x${cols} 表格`,
+    };
+  }
+
+  const dataRows = Array.from({ length: rows - 1 }, () =>
+    Array.from({ length: cols }, () => '内容')
+  );
+  const afterParts: string[] = [];
+  if (dataRows[0].length > 1) {
+    afterParts.push(' | ' + dataRows[0].slice(1).join(' | ') + ' |');
+  } else {
+    afterParts.push(' |');
+  }
+  for (let i = 1; i < dataRows.length; i++) {
+    afterParts.push('| ' + dataRows[i].join(' | ') + ' |');
+  }
+
+  return {
+    before: headerLine + '\n' + sepLine + '\n| ',
+    after: afterParts.join('\n'),
+    placeholder: '内容',
+    block: true,
+    description: `插入 ${rows}x${cols} 表格`,
+  };
+}
+
 const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onInsertMarkdown,
   onImageUpload,
@@ -75,6 +114,11 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onVersionHistory,
 }) => {
   const disabled = !editorReady;
+
+  const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
+  const [hoveredSize, setHoveredSize] = useState({ rows: 0, cols: 0 });
+  const [customRows, setCustomRows] = useState(3);
+  const [customCols, setCustomCols] = useState(3);
 
   const handleHeading = useCallback(({ key }: { key: string }) => {
     const level = parseInt(key);
@@ -108,6 +152,55 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
         onClick={() => onInsertMarkdown(before, after, placeholder, block, description)}
       />
     </Tooltip>
+  );
+
+  const handleTableSelect = useCallback((rows: number, cols: number) => {
+    const table = generateTableMarkdown(rows, cols);
+    onInsertMarkdown(table.before, table.after, table.placeholder, table.block, table.description);
+    setTablePopoverOpen(false);
+  }, [onInsertMarkdown]);
+
+  const tablePickerContent = (
+    <div style={{ padding: 4 }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(8, 20px)',
+        gap: 2,
+        marginBottom: 4,
+      }}>
+        {Array.from({ length: 48 }).map((_, i) => {
+          const row = Math.floor(i / 8) + 1;
+          const col = (i % 8) + 1;
+          const active = row <= hoveredSize.rows && col <= hoveredSize.cols;
+          return (
+            <div
+              key={i}
+              onMouseEnter={() => setHoveredSize({ rows: row, cols: col })}
+              onClick={() => handleTableSelect(row, col)}
+              style={{
+                width: 20,
+                height: 20,
+                border: '1px solid #d9d9d9',
+                borderRadius: 2,
+                background: active ? '#e6f4ff' : '#fff',
+                cursor: 'pointer',
+                transition: 'background 0.1s',
+              }}
+            />
+          );
+        })}
+      </div>
+      <div style={{ textAlign: 'center', fontSize: 12, color: '#666', marginBottom: 8 }}>
+        {hoveredSize.rows > 0 ? `${hoveredSize.rows} x ${hoveredSize.cols} 表格` : '选择表格大小'}
+      </div>
+      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span style={{ fontSize: 12, color: '#666' }}>行</span>
+        <InputNumber min={1} max={20} size="small" value={customRows} onChange={v => setCustomRows(v || 1)} style={{ width: 60 }} />
+        <span style={{ fontSize: 12, color: '#666' }}>列</span>
+        <InputNumber min={1} max={20} size="small" value={customCols} onChange={v => setCustomCols(v || 1)} style={{ width: 60 }} />
+        <Button size="small" type="primary" onClick={() => handleTableSelect(customRows, customCols)}>插入</Button>
+      </div>
+    </div>
   );
 
   const historyContent = (
@@ -239,13 +332,24 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
           <Button type="text" size="small" icon={<PictureOutlined />} disabled={disabled} />
         </Tooltip>
       </Dropdown>
-      <ToolBtn icon={<TableOutlined />} label="表格" before={
-`
-| 列1 | 列2 | 列3 |
-| --- | --- | --- |
-| `
-} after={` |  |  |
-`} placeholder="内容" block description="表格" />
+      <Popover
+        content={tablePickerContent}
+        trigger="click"
+        placement="bottom"
+        open={tablePopoverOpen}
+        onOpenChange={(open) => {
+          setTablePopoverOpen(open);
+          if (open) {
+            setHoveredSize({ rows: 0, cols: 0 });
+            setCustomRows(3);
+            setCustomCols(3);
+          }
+        }}
+      >
+        <Tooltip title="表格">
+          <Button type="text" size="small" icon={<TableOutlined />} disabled={disabled} />
+        </Tooltip>
+      </Popover>
       <ToolBtn icon={<LineOutlined />} label="分割线" before="\n---\n" block description="分割线" />
 
       <div style={{ flex: 1 }} />

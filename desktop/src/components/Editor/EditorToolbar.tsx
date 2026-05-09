@@ -9,6 +9,7 @@ import {
   CodeOutlined,
   LinkOutlined,
   PictureOutlined,
+  FolderOpenOutlined,
   LineOutlined,
   FontSizeOutlined,
   UndoOutlined,
@@ -26,6 +27,7 @@ import type { HistoryEntry } from '../../hooks/useHistory';
 interface EditorToolbarProps {
   onInsertMarkdown: (before: string, after?: string, placeholder?: string, block?: boolean, description?: string) => void;
   onImageUpload: (file: File, role?: 'content' | 'cover' | 'gallery') => void;
+  onInsertFromLibrary?: (role?: 'content' | 'cover' | 'gallery') => void;
   editorReady: boolean;
   editMode?: 'wysiwyg' | 'markdown';
   onToggleEditMode?: () => void;
@@ -59,6 +61,7 @@ function formatTimeAgo(ts: number): string {
 const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onInsertMarkdown,
   onImageUpload,
+  onInsertFromLibrary,
   editorReady,
   editMode = 'wysiwyg',
   onToggleEditMode,
@@ -214,8 +217,14 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
           { key: 'content', label: '插入图片', icon: <PictureOutlined /> },
           { key: 'cover', label: '插入封面图', icon: <PictureOutlined /> },
           { key: 'gallery', label: '插入轮播图', icon: <PictureOutlined /> },
+          { type: 'divider' },
+          { key: 'library', label: '从素材库选择', icon: <FolderOpenOutlined /> },
         ],
         onClick: ({ key }) => {
+          if (key === 'library') {
+            onInsertFromLibrary?.();
+            return;
+          }
           const input = document.createElement('input');
           input.type = 'file';
           input.accept = 'image/*';

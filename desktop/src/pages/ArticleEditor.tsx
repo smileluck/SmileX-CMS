@@ -13,12 +13,14 @@ import { useHistory } from '../hooks/useHistory';
 import { extractPlatformMeta, setPlatformMeta } from '../utils/platformMetadata';
 import type { PlatformMeta } from '../utils/platformMetadata';
 import EditorToolbar from '../components/Editor/EditorToolbar';
+import MediaPickerModal from '../components/Editor/MediaPickerModal';
 import VersionHistory from '../components/Editor/VersionHistory';
 import PlatformPreview from '../components/Preview/PlatformPreview';
 import PlatformIcon from '../components/PlatformIcon';
 import PlatformMetaPanel from '../components/Editor/PlatformMetaPanel';
 import ImageCarousel from '../components/Preview/ImageCarousel';
 import type { PlatformKey } from '../components/Preview/PlatformPreview';
+import type { Media } from '../types';
 
 const MilkdownEditor: React.FC<{
   value: string;
@@ -186,6 +188,8 @@ const ArticleEditor: React.FC = () => {
   const [editorReady, setEditorReady] = useState(true);
   const [editMode, setEditMode] = useState<'wysiwyg' | 'markdown'>('markdown');
   const [pendingImages, setPendingImages] = useState<{ mediaId: number; originalPath: string }[]>([]);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerRole, setMediaPickerRole] = useState<'content' | 'cover' | 'gallery'>('content');
   const [articleFilePath, setArticleFilePath] = useState<string | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState('classic');
   const [customColor, setCustomColor] = useState<string | undefined>(undefined);
@@ -410,6 +414,76 @@ const ArticleEditor: React.FC = () => {
     }
   }, [articleId, editMode, setContent, previewPlatform, content]);
 
+  const handleInsertFromLibrary = useCallback(() => {
+    setMediaPickerRole('content');
+    setMediaPickerOpen(true);
+  }, []);
+
+  const handleMediaSelect = useCallback(async (mediaList: Media[]) => {
+    try {
+      let insertParts: string[] = [];
+      const newPending: { mediaId: number; originalPath: string }[] = [];
+      let xhsImages: string[] = [];
+
+      for (const media of mediaList) {
+        let imgPath: string;
+        if (articleId) {
+          const copied = await apiService.copyMediaToArticle(articleId, media.id);
+          imgPath = copied.markdown_path || `images/${copied.file_path.split('/').pop()}`;
+        } else {
+          imgPath = media.file_path;
+          newPending.push({ mediaId: media.id, originalPath: media.file_path });
+        }
+
+        if (previewPlatform === 'xiaohongshu' && (mediaPickerRole === 'cover' || mediaPickerRole === 'gallery')) {
+          xhsImages.push(`./${imgPath}`);
+        } else {
+          const altText = mediaPickerRole === 'cover' ? '封面' : mediaPickerRole === 'gallery' ? '轮播' : media.filename;
+          insertParts.push(`![${altText}](${articleId ? './' : ''}${imgPath})`);
+        }
+      }
+
+      if (newPending.length > 0) {
+        setPendingImages(prev => [...prev, ...newPending]);
+      }
+
+      if (xhsImages.length > 0) {
+        const currentMeta = extractPlatformMeta(content, 'xiaohongshu');
+        currentMeta.images = [...currentMeta.images, ...xhsImages];
+        setContent(setPlatformMeta(content, 'xiaohongshu', currentMeta), '添加小红书图片');
+      }
+
+      if (insertParts.length > 0) {
+        const imgMd = '\n' + insertParts.join('\n') + '\n';
+        if (editMode === 'markdown') {
+          const textarea = textareaRef.current;
+          if (textarea) {
+            const pos = textarea.selectionStart;
+            setContent(prev => prev.substring(0, pos) + imgMd + prev.substring(pos), '插入图片');
+            const newPos = pos + imgMd.length;
+            requestAnimationFrame(() => {
+              if (textareaRef.current) {
+                textareaRef.current.selectionStart = newPos;
+                textareaRef.current.selectionEnd = newPos;
+                textareaRef.current.focus();
+              }
+            });
+          } else {
+            setContent(prev => prev + imgMd, '插入图片');
+          }
+        } else {
+          setContent(prev => prev + imgMd, '插入图片');
+        }
+      }
+
+      message.success(`已插入 ${mediaList.length} 张图片`);
+    } catch {
+      message.error('图片插入失败');
+    } finally {
+      setMediaPickerOpen(false);
+    }
+  }, [articleId, editMode, setContent, previewPlatform, content, mediaPickerRole]);
+
   const handleInsertMarkdown = useCallback((before: string, after: string = '', placeholder: string = '', block: boolean = false, description: string = '插入内容') => {
     if (editMode === 'markdown') {
       const textarea = textareaRef.current;
@@ -601,6 +675,7 @@ const ArticleEditor: React.FC = () => {
           <EditorToolbar
             onInsertMarkdown={handleInsertMarkdown}
             onImageUpload={handleImageUpload}
+            onInsertFromLibrary={handleInsertFromLibrary}
             editorReady={editorReady}
             editMode={editMode}
             onToggleEditMode={() => setEditMode(m => m === 'wysiwyg' ? 'markdown' : 'wysiwyg')}
@@ -854,6 +929,11 @@ const ArticleEditor: React.FC = () => {
           onRestore={handleVersionRestore}
         />
       )}
+      <MediaPickerModal
+        open={mediaPickerOpen}
+        onClose={() => setMediaPickerOpen(false)}
+        onSelect={handleMediaSelect}
+      />
     </div>
   );
 };

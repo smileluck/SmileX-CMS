@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Input, Button, Space, Select, message, Spin, Radio, Switch } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, CopyOutlined, VerticalAlignTopOutlined } from '@ant-design/icons';
+import { Input, Button, Space, Select, message, Spin, Radio, Switch, Table, Tag, Tooltip } from 'antd';
+import { ArrowLeftOutlined, SaveOutlined, CopyOutlined, VerticalAlignTopOutlined, HistoryOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
 import { createArticle, updateArticle } from '../store/articleSlice';
@@ -196,6 +196,8 @@ const ArticleEditor: React.FC = () => {
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [showBackTop, setShowBackTop] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [publishHistoryOpen, setPublishHistoryOpen] = useState(false);
+  const [publishHistoryTasks, setPublishHistoryTasks] = useState<any[]>([]);
 
   useEffect(() => {
     const el = previewContainerRef.current;
@@ -235,6 +237,13 @@ const ArticleEditor: React.FC = () => {
     dispatch(fetchTags());
     apiService.getThemes().then(setThemes).catch(() => {});
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!articleId || !publishHistoryOpen) return;
+    apiService.getPublishTasks({ article_id: articleId, limit: 20 }).then(res => {
+      setPublishHistoryTasks(res.tasks);
+    }).catch(() => {});
+  }, [articleId, publishHistoryOpen]);
 
   useEffect(() => {
     if (!id) return;
@@ -532,6 +541,16 @@ const ArticleEditor: React.FC = () => {
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/articles')}>返回</Button>
         </Space>
         <Space>
+          {articleId && (
+            <Button
+              icon={<HistoryOutlined />}
+              onClick={() => setPublishHistoryOpen(v => !v)}
+              type={publishHistoryOpen ? 'primary' : 'default'}
+              ghost={publishHistoryOpen}
+            >
+              发布历史
+            </Button>
+          )}
           <Button icon={<CopyOutlined />} onClick={handleCopyRichText} disabled={!styledHtml}>
             复制富文本
           </Button>
@@ -772,6 +791,60 @@ const ArticleEditor: React.FC = () => {
           </div>
         </div>
       </div>
+      {articleId && publishHistoryOpen && (
+        <div style={{ flexShrink: 0, borderTop: '1px solid #e8e8e8', marginTop: 8, maxHeight: 280, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
+            <span style={{ fontWeight: 500, fontSize: 13 }}>发布历史</span>
+            <Button size="small" type="text" icon={<UpOutlined />} onClick={() => setPublishHistoryOpen(false)} />
+          </div>
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <Table
+              size="small"
+              columns={[
+                {
+                  title: '平台', key: 'platform', width: 130,
+                  render: (_: any, r: any) => r.platform_name ? <PlatformIcon platformName={r.platform_name} size={14} showText /> : '-',
+                },
+                {
+                  title: '方式', key: 'method', width: 70,
+                  render: (_: any, r: any) => <Tag color={r.publish_method === 'local' ? 'orange' : 'blue'} style={{ fontSize: 11 }}>{r.publish_method === 'local' ? '本地' : '云端'}</Tag>,
+                },
+                {
+                  title: '状态', dataIndex: 'status', key: 'status', width: 70,
+                  render: (s: string) => {
+                    const map: Record<string, { color: string; label: string }> = { pending: { color: 'blue', label: '等待中' }, running: { color: 'processing', label: '执行中' }, success: { color: 'green', label: '成功' }, failed: { color: 'red', label: '失败' }, cancelled: { color: 'default', label: '已取消' } };
+                    const info = map[s] || { color: 'default', label: s };
+                    return <Tag color={info.color} style={{ fontSize: 11 }}>{info.label}</Tag>;
+                  },
+                },
+                {
+                  title: '时间', dataIndex: 'created_at', key: 'time', width: 160,
+                  render: (t: string) => t ? new Date(t).toLocaleString() : '-',
+                },
+                {
+                  title: '操作', key: 'action', width: 80,
+                  render: (_: any, r: any) => (
+                    <Space>
+                      {r.status === 'failed' && <Button size="small" type="link" style={{ padding: 0, fontSize: 12 }} onClick={async () => {
+                        try {
+                          await apiService.retryPublishTask(r.id);
+                          message.success('已重新加入队列');
+                          apiService.getPublishTasks({ article_id: articleId!, limit: 20 }).then(res => setPublishHistoryTasks(res.tasks));
+                        } catch { message.error('重试失败'); }
+                      }}>重试</Button>}
+                      {r.platform_post_url && <Tooltip title={r.platform_post_url}><a href={r.platform_post_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>链接</a></Tooltip>}
+                    </Space>
+                  ),
+                },
+              ]}
+              dataSource={publishHistoryTasks}
+              rowKey="id"
+              pagination={false}
+              locale={{ emptyText: '暂无发布记录' }}
+            />
+          </div>
+        </div>
+      )}
       {articleId && (
         <VersionHistory
           open={versionHistoryOpen}

@@ -1,17 +1,18 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { PublishTask, PublishLog } from '../types';
+import type { PublishTask, PublishLog, PublishTaskListResponse } from '../types';
 import { apiService } from '../services/api';
 
 interface PublishState {
   tasks: PublishTask[];
+  total: number;
   currentLogs: PublishLog[];
   isLoading: boolean;
   error: string | null;
 }
 
-const initialState: PublishState = { tasks: [], currentLogs: [], isLoading: false, error: null };
+const initialState: PublishState = { tasks: [], total: 0, currentLogs: [], isLoading: false, error: null };
 
-export const fetchPublishTasks = createAsyncThunk('publish/fetch', async (params?: { status?: string }, { rejectWithValue }) => {
+export const fetchPublishTasks = createAsyncThunk<PublishTaskListResponse, { status?: string; article_id?: number; platform_name?: string; publish_method?: string; skip?: number; limit?: number } | undefined>('publish/fetch', async (params, { rejectWithValue }) => {
   try {
     return await apiService.getPublishTasks(params);
   } catch (error: any) {
@@ -42,7 +43,7 @@ const publishSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchPublishTasks.pending, (state) => { state.isLoading = true; })
-      .addCase(fetchPublishTasks.fulfilled, (state, action) => { state.isLoading = false; state.tasks = action.payload; })
+      .addCase(fetchPublishTasks.fulfilled, (state, action) => { state.isLoading = false; state.tasks = action.payload.tasks; state.total = action.payload.total; })
       .addCase(fetchPublishTasks.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; })
       .addCase(fetchPublishLogs.fulfilled, (state, action) => { state.currentLogs = action.payload; })
       .addCase(createPublishTasks.pending, (state) => { state.isLoading = true; })

@@ -21,6 +21,7 @@ class PublishLocalResultItem(BaseModel):
     success: bool
     output_path: Optional[str] = None
     error_message: Optional[str] = None
+    task_id: Optional[int] = None
 
 
 class PublishLocalResponse(BaseModel):
@@ -31,8 +32,9 @@ class PublishLocalResponse(BaseModel):
 class PublishTaskResponse(BaseModel):
     id: int
     article_id: int
-    platform_account_id: int
+    platform_account_id: Optional[int] = None
     user_id: int
+    platform_name: Optional[str] = None
     status: str
     publish_method: Optional[str] = None
     platform_post_id: Optional[str] = None
@@ -43,9 +45,16 @@ class PublishTaskResponse(BaseModel):
     completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    article_title: Optional[str] = None
+    account_name: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class PublishTaskListResponse(BaseModel):
+    tasks: List[PublishTaskResponse]
+    total: int
 
 
 class PublishLogResponse(BaseModel):

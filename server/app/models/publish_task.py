@@ -10,9 +10,10 @@ class PublishTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
     platform_account_id = Column(
-        Integer, ForeignKey("platform_accounts.id"), nullable=False
+        Integer, ForeignKey("platform_accounts.id"), nullable=True
     )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    platform_name = Column(String(50))
     status = Column(String(20), default="pending")
     publish_method = Column(String(20))
     platform_post_id = Column(String(100))

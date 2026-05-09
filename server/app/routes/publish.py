@@ -19,6 +19,7 @@ from ..schemas.publish import (
     PublishLocalResultItem,
     PreviewHtmlRequest,
     PreviewHtmlResponse,
+    PublishTaskListResponse,
 )
 from ..dependencies import get_current_user
 from ..plugins.registry import PluginRegistry
@@ -92,6 +93,7 @@ def publish_local(
 
     results: list[PublishLocalResultItem] = []
     all_success = True
+    now = datetime.now(timezone.utc)
     for name in req.platform_names:
         plugin = PluginRegistry.get(name)
         if not plugin:
@@ -103,14 +105,35 @@ def publish_local(
             all_success = False
             continue
         gen = plugin.generate(article, options)
+        task = PublishTask(
+            article_id=article.id,
+            platform_account_id=None,
+            platform_name=name,
+            user_id=current_user.id,
+            status="success" if gen.success else "failed",
+            publish_method="local",
+            error_message=gen.error_message,
+            started_at=now,
+            completed_at=now,
+        )
+        db.add(task)
+        db.flush()
+        db.add(PublishLog(
+            task_id=task.id,
+            level="info" if gen.success else "error",
+            message="Local generate succeeded" if gen.success else f"Local generate failed: {gen.error_message}",
+            details={"output_path": gen.output_path} if gen.output_path else None,
+        ))
         results.append(PublishLocalResultItem(
             platform_name=name,
             success=gen.success,
             output_path=gen.output_path,
             error_message=gen.error_message,
+            task_id=task.id,
         ))
         if not gen.success:
             all_success = False
+    db.commit()
 
     return PublishLocalResponse(success=all_success, results=results)
 
@@ -224,6 +247,7 @@ def create_publish_tasks(
         task = PublishTask(
             article_id=article.id,
             platform_account_id=account.id,
+            platform_name=account.platform_name,
             user_id=current_user.id,
             status="pending",
             publish_method=plugin.auth_method,
@@ -244,18 +268,47 @@ def create_publish_tasks(
     )
 
 
-@router.get("/tasks", response_model=List[PublishTaskResponse])
+def _enrich_task(task: PublishTask, db: Session) -> dict:
+    article = db.query(Article).filter(Article.id == task.article_id).first()
+    account = (
+        db.query(PlatformAccount).filter(PlatformAccount.id == task.platform_account_id).first()
+        if task.platform_account_id else None
+    )
+    resp = PublishTaskResponse.model_validate(task)
+    resp.article_title = article.title if article else None
+    resp.account_name = account.account_name if account else None
+    return resp
+
+
+@router.get("/tasks", response_model=PublishTaskListResponse)
 def get_publish_tasks(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    status: Optional[str] = Query(None, alias="status"),
+    task_status: Optional[str] = Query(None, alias="status"),
+    article_id: Optional[int] = Query(None),
+    platform_name: Optional[str] = Query(None),
+    publish_method: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     q = db.query(PublishTask).filter(PublishTask.user_id == current_user.id)
-    if status:
-        q = q.filter(PublishTask.status == status)
-    return q.order_by(PublishTask.created_at.desc()).offset(skip).limit(limit).all()
+    if task_status:
+        q = q.filter(PublishTask.status == task_status)
+    if article_id:
+        q = q.filter(PublishTask.article_id == article_id)
+    if platform_name:
+        q = q.filter(PublishTask.platform_name == platform_name)
+    if publish_method:
+        if publish_method == "cloud":
+            q = q.filter(PublishTask.publish_method != "local")
+        else:
+            q = q.filter(PublishTask.publish_method == publish_method)
+    total = q.count()
+    tasks = q.order_by(PublishTask.created_at.desc()).offset(skip).limit(limit).all()
+    return PublishTaskListResponse(
+        tasks=[_enrich_task(t, db) for t in tasks],
+        total=total,
+    )
 
 
 @router.get("/tasks/{task_id}", response_model=PublishTaskResponse)
@@ -271,7 +324,7 @@ def get_publish_task(
     )
     if not task:
         raise HTTPException(status_code=404, detail="Publish task not found")
-    return task
+    return _enrich_task(task, db)
 
 
 @router.get("/tasks/{task_id}/logs", response_model=List[PublishLogResponse])
@@ -315,7 +368,7 @@ def retry_publish_task(
     db.commit()
     db.refresh(task)
     background_tasks.add_task(_execute_publish, task.id)
-    return task
+    return _enrich_task(task, db)
 
 
 @router.post("/tasks/{task_id}/cancel", status_code=status.HTTP_204_NO_CONTENT)

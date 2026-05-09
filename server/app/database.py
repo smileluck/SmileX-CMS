@@ -32,6 +32,11 @@ def _migrate_db(engine):
             "column": "change_summary",
             "definition": "TEXT",
         },
+        {
+            "table": "publish_tasks",
+            "column": "platform_name",
+            "definition": "VARCHAR(50)",
+        },
     ]
 
     insp = inspect(engine)
@@ -45,6 +50,43 @@ def _migrate_db(engine):
                 conn.execute(
                     text(f"ALTER TABLE {table} ADD COLUMN {column} {mig['definition']}")
                 )
+
+        # SQLite cannot ALTER COLUMN to drop NOT NULL; recreate table instead.
+        cols = {c["name"]: c for c in insp.get_columns("publish_tasks")}
+        if cols.get("platform_account_id", {}).get("nullable") is False:
+            logger.info("Migrating publish_tasks.platform_account_id to nullable")
+            conn.execute(text(
+                "CREATE TABLE publish_tasks_new ("
+                "id INTEGER PRIMARY KEY,"
+                "article_id INTEGER NOT NULL,"
+                "platform_account_id INTEGER,"
+                "user_id INTEGER NOT NULL,"
+                "platform_name VARCHAR(50),"
+                "status VARCHAR(20),"
+                "publish_method VARCHAR(20),"
+                "platform_post_id VARCHAR(100),"
+                "platform_post_url VARCHAR(500),"
+                "error_message TEXT,"
+                "retry_count INTEGER,"
+                "started_at DATETIME,"
+                "completed_at DATETIME,"
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                "FOREIGN KEY(article_id) REFERENCES articles(id),"
+                "FOREIGN KEY(platform_account_id) REFERENCES platform_accounts(id),"
+                "FOREIGN KEY(user_id) REFERENCES users(id)"
+                ")"
+            ))
+            conn.execute(text(
+                "INSERT INTO publish_tasks_new "
+                "SELECT id, article_id, platform_account_id, user_id, platform_name, "
+                "status, publish_method, platform_post_id, platform_post_url, "
+                "error_message, retry_count, started_at, completed_at, created_at, updated_at "
+                "FROM publish_tasks"
+            ))
+            conn.execute(text("DROP TABLE publish_tasks"))
+            conn.execute(text("ALTER TABLE publish_tasks_new RENAME TO publish_tasks"))
+            conn.execute(text("CREATE INDEX ix_publish_tasks_id ON publish_tasks(id)"))
 
 
 def init_db():

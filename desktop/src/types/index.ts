@@ -150,8 +150,9 @@ export interface PlatformAccountCreate {
 export interface PublishTask {
   id: number;
   article_id: number;
-  platform_account_id: number;
+  platform_account_id: number | null;
   user_id: number;
+  platform_name: string | null;
   status: 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
   publish_method: string | null;
   platform_post_id: string | null;
@@ -162,6 +163,13 @@ export interface PublishTask {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  article_title: string | null;
+  account_name: string | null;
+}
+
+export interface PublishTaskListResponse {
+  tasks: PublishTask[];
+  total: number;
 }
 
 export interface PublishLog {

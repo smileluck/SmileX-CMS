@@ -7,7 +7,7 @@ import type {
   Tag, TagCreate, TagUpdate,
   Media, AppSettings,
   PlatformAccount, PlatformAccountCreate, PlatformInfo,
-  PublishTask, PublishTaskCreate, PublishLog, PublishBatchResponse,
+  PublishTask, PublishTaskCreate, PublishLog, PublishBatchResponse, PublishTaskListResponse,
 } from '../types';
 
 const getBaseURL = (): string => {
@@ -195,8 +195,8 @@ class ApiService {
     return data;
   }
 
-  async getPublishTasks(params?: { status?: string }): Promise<PublishTask[]> {
-    const { data } = await this.client.get<PublishTask[]>('/publish/tasks', { params });
+  async getPublishTasks(params?: { status?: string; article_id?: number; platform_name?: string; publish_method?: string; skip?: number; limit?: number }): Promise<PublishTaskListResponse> {
+    const { data } = await this.client.get<PublishTaskListResponse>('/publish/tasks', { params });
     return data;
   }
 

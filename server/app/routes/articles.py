@@ -37,6 +37,54 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
 
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp"}
+
+
+def _extract_title_from_content(content: str) -> Optional[str]:
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            return stripped.lstrip("#").strip()
+    return None
+
+
+def _scan_images_in_dir(dir_path: Path, md_filename: str = "index.md") -> List[str]:
+    images: List[str] = []
+    # 1. images/ subdirectory (standard format)
+    images_dir = dir_path / "images"
+    if images_dir.is_dir():
+        for f in sorted(images_dir.iterdir()):
+            if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS:
+                images.append(f"images/{f.name}")
+    # 2. *.assets/ directories (Typora-style: index.assets, article-name.assets, etc.)
+    for item in dir_path.iterdir():
+        if item.is_dir() and item.name.endswith(".assets"):
+            for f in sorted(item.iterdir()):
+                if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS:
+                    images.append(f"{item.name}/{f.name}")
+    # 3. Direct image files in the directory (excluding cover)
+    for f in sorted(dir_path.iterdir()):
+        if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS:
+            if f.name.lower().startswith("cover"):
+                continue
+            images.append(f.name)
+    return images
+
+
+def _detect_cover_image(dir_path: Path) -> Optional[str]:
+    for name in ["cover.jpg", "cover.jpeg", "cover.png", "cover.gif", "cover.webp"]:
+        if (dir_path / name).is_file():
+            return name
+    return None
+
+
+def _parse_dir_name(dir_name: str) -> tuple[str, Optional[str]]:
+    # Try standard format: {title}-{snow_id} where snow_id is numeric, 10-20 digits
+    match = re.match(r"^(.+)-(\d{10,20})$", dir_name)
+    if match:
+        return match.group(1).replace("_", " "), match.group(2)
+    return dir_name.replace("_", " "), None
+
 
 def _get_content_dir(article_type: str, db: Session, user_id: int) -> Path:
     if article_type == "video":
@@ -122,6 +170,198 @@ def _article_to_response(article: Article, db: Session = None) -> dict:
         "version_count": version_count,
         "created_at": article.created_at,
         "updated_at": article.updated_at,
+    }
+
+
+def _recursive_scan_md_dirs(base_dir: Path) -> List[Path]:
+    """Recursively find all directories containing .md files."""
+    found: List[Path] = []
+    if not base_dir.is_dir():
+        return found
+    for item in sorted(base_dir.rglob("*")):
+        if not item.is_dir():
+            continue
+        # skip hidden and .assets dirs
+        if item.name.startswith(".") or item.name.endswith(".assets"):
+            continue
+        # check if this dir has any .md file
+        has_md = any(f.suffix.lower() == ".md" for f in item.iterdir() if f.is_file())
+        if has_md:
+            found.append(item)
+    return found
+
+
+@router.post("/scan")
+def scan_articles(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    articles_dir = _get_articles_dir(db, current_user.id)
+    videos_dir = _get_videos_dir(db, current_user.id)
+
+    # collect existing file_paths for this user
+    existing_paths = {
+        a.file_path
+        for a in db.query(Article.file_path)
+        .filter(Article.author_id == current_user.id, Article.file_path.isnot(None))
+        .all()
+    }
+
+    new_articles: List[Dict[str, Any]] = []
+    existing_articles: List[str] = []
+
+    for content_dir, article_type in [(articles_dir, "article"), (videos_dir, "video")]:
+        type_label = "articles" if article_type == "article" else "videos"
+        for dir_path in _recursive_scan_md_dirs(content_dir):
+            # find the primary md file
+            md_file = dir_path / "index.md"
+            if not md_file.is_file():
+                md_files = [f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() == ".md"]
+                if md_files:
+                    md_file = md_files[0]
+                else:
+                    continue
+
+            relative = dir_path.relative_to(BASE_STORAGE_DIR).as_posix()
+
+            if relative in existing_paths:
+                existing_articles.append(relative)
+                continue
+
+            try:
+                content = md_file.read_text(encoding="utf-8")
+            except OSError:
+                continue
+
+            dir_name = dir_path.name
+            dir_title, snow_id = _parse_dir_name(dir_name)
+            content_title = _extract_title_from_content(content)
+            title = content_title or dir_title
+
+            cover = _detect_cover_image(dir_path)
+            images = _scan_images_in_dir(dir_path, md_file.name)
+
+            new_articles.append({
+                "dir_name": dir_name,
+                "title": title,
+                "snow_id": snow_id,
+                "content": content,
+                "article_type": article_type,
+                "cover_image": cover,
+                "file_path": relative,
+                "images": images,
+                "images_count": len(images),
+            })
+
+    return {
+        "total_scanned": len(new_articles) + len(existing_articles),
+        "new_articles": new_articles,
+        "existing_articles": existing_articles,
+        "existing_count": len(existing_articles),
+    }
+
+
+@router.post("/import")
+def import_articles(
+    body: Dict[str, Any],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    items: List[Dict[str, Any]] = body.get("articles", [])
+    extract_media: bool = body.get("extract_media", False)
+
+    if not items:
+        raise HTTPException(status_code=400, detail="No articles to import")
+
+    imported: List[Dict[str, Any]] = []
+    media_imported = 0
+
+    for item in items:
+        file_path = item.get("file_path")
+        title = item.get("title", "Untitled")
+        content = item.get("content", "")
+        snow_id = item.get("snow_id")
+        article_type = item.get("article_type", "article")
+        cover_image = item.get("cover_image")
+        images = item.get("images", [])
+
+        if not file_path:
+            continue
+
+        # check duplicate
+        existing = (
+            db.query(Article)
+            .filter(Article.file_path == file_path, Article.author_id == current_user.id)
+            .first()
+        )
+        if existing:
+            continue
+
+        # validate snow_id uniqueness
+        if snow_id:
+            if db.query(Article).filter(Article.snow_id == snow_id).first():
+                snow_id = generate_snow_id()
+        else:
+            snow_id = generate_snow_id()
+
+        db_article = Article(
+            snow_id=snow_id,
+            title=title,
+            content=content,
+            article_type=article_type,
+            cover_image=cover_image,
+            author_id=current_user.id,
+            file_path=file_path,
+            tags=[],
+        )
+        db.add(db_article)
+        db.flush()
+
+        # extract media to shared library
+        if extract_media and images:
+            article_dir = BASE_STORAGE_DIR / file_path
+            media_dir = _get_base_storage_dir(db, current_user.id) / "media"
+            media_dir.mkdir(parents=True, exist_ok=True)
+            for img_rel in images:
+                src = article_dir / img_rel
+                if not src.is_file():
+                    continue
+                media_snow_id = generate_snow_id()
+                ext = src.suffix.lower()
+                dest = media_dir / f"{media_snow_id}{ext}"
+                try:
+                    shutil.copy2(str(src), str(dest))
+                except OSError as e:
+                    logger.warning("Failed to copy media %s: %s", src, e)
+                    continue
+
+                relative_media_path = dest.relative_to(BASE_STORAGE_DIR).as_posix()
+                mime_map = {
+                    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                    ".png": "image/png", ".gif": "image/gif",
+                    ".webp": "image/webp", ".svg": "image/svg+xml",
+                    ".bmp": "image/bmp",
+                }
+                db_media = Media(
+                    snow_id=media_snow_id,
+                    filename=src.name,
+                    file_path=relative_media_path,
+                    file_type=mime_map.get(ext, "image/png"),
+                    file_size=src.stat().st_size,
+                    media_type="image",
+                    article_id=db_article.id,
+                    user_id=current_user.id,
+                )
+                db.add(db_media)
+                media_imported += 1
+
+        imported.append(_article_to_response(db_article, db))
+
+    db.commit()
+    return {
+        "imported": imported,
+        "imported_count": len(imported),
+        "media_imported": media_imported,
     }
 
 

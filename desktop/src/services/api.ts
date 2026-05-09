@@ -4,6 +4,7 @@ import type {
   Token, User, UserCreate,
   Article, ArticleCreate, ArticleUpdate,
   ArticleVersion, ArticleVersionBrief, VersionDiff,
+  ScannedArticle, ScanResult,
   Tag, TagCreate, TagUpdate,
   Media, AppSettings,
   PlatformAccount, PlatformAccountCreate, PlatformInfo,
@@ -338,6 +339,23 @@ class ApiService {
 
   async updateSettings(settings: Record<string, string>): Promise<AppSettings> {
     const { data } = await this.client.put<AppSettings>('/settings', { settings });
+    return data;
+  }
+
+  async scanArticles(): Promise<ScanResult> {
+    const { data } = await this.client.post<ScanResult>('/articles/scan');
+    return data;
+  }
+
+  async importArticles(articles: ScannedArticle[], extractMedia: boolean): Promise<{
+    imported: Article[];
+    imported_count: number;
+    media_imported: number;
+  }> {
+    const { data } = await this.client.post('/articles/import', {
+      articles,
+      extract_media: extractMedia,
+    });
     return data;
   }
 }

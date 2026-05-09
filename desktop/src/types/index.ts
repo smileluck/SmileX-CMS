@@ -248,3 +248,22 @@ export interface VersionDiff {
   diff: string;
   title_diff: { old: string | null; new: string } | null;
 }
+
+export interface ScannedArticle {
+  dir_name: string;
+  title: string;
+  snow_id: string | null;
+  content: string;
+  article_type: 'article' | 'video';
+  cover_image: string | null;
+  file_path: string;
+  images: string[];
+  images_count: number;
+}
+
+export interface ScanResult {
+  total_scanned: number;
+  new_articles: ScannedArticle[];
+  existing_articles: string[];
+  existing_count: number;
+}

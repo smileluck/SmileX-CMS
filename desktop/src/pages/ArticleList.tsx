@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Table, Tag, Space, Input, message, Modal, Tooltip, Select } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined } from '@ant-design/icons';
+import { Button, Table, Tag, Space, Input, message, Modal, Tooltip, Select, Checkbox } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchArticles, deleteArticle } from '../store/articleSlice';
@@ -9,7 +9,7 @@ import { fetchTags } from '../store/tagSlice';
 import { apiService } from '../services/api';
 import PlatformIcon, { platformNameMap } from '../components/PlatformIcon';
 import PublishModal from '../components/PublishModal';
-import type { ArticlePublishStatus } from '../types';
+import type { ArticlePublishStatus, ScannedArticle, ScanResult } from '../types';
 
 const statusTagMap: Record<string, { color: string; label: string; icon?: React.ReactNode }> = {
   pending: { color: 'blue', label: '等待中', icon: <ClockCircleOutlined /> },
@@ -30,6 +30,14 @@ const ArticleList: React.FC = () => {
   const [publishSummary, setPublishSummary] = useState<Record<number, ArticlePublishStatus[]>>({});
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [publishingArticleId, setPublishingArticleId] = useState<number | null>(null);
+
+  // scan state
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [extractMedia, setExtractMedia] = useState(true);
+  const [importLoading, setImportLoading] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTags());
@@ -95,6 +103,40 @@ const ArticleList: React.FC = () => {
       .then(data => setPublishSummary(data))
       .catch(() => {});
   }, [dispatch, debouncedSearch, selectedTagId]);
+
+  const handleScan = async () => {
+    setScanLoading(true);
+    try {
+      const result = await apiService.scanArticles();
+      setScanResult(result);
+      setSelectedRowKeys(result.new_articles.map((_, i) => i));
+      setScanModalOpen(true);
+      if (result.new_articles.length === 0 && result.existing_count > 0) {
+        message.info(`扫描完成：所有 ${result.existing_count} 篇文章均已导入`);
+      }
+    } catch {
+      message.error('扫描失败');
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!scanResult || selectedRowKeys.length === 0) return;
+    setImportLoading(true);
+    try {
+      const selected = selectedRowKeys.map(key => scanResult.new_articles[key as number]);
+      const result = await apiService.importArticles(selected, extractMedia);
+      message.success(`成功导入 ${result.imported_count} 篇文章${result.media_imported > 0 ? `，${result.media_imported} 个素材` : ''}`);
+      setScanModalOpen(false);
+      setScanResult(null);
+      dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId }));
+    } catch {
+      message.error('导入失败');
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const renderPublishStatus = (articleId: number) => {
     const statuses = publishSummary[articleId];
@@ -201,6 +243,27 @@ const ArticleList: React.FC = () => {
     },
   ];
 
+  const scanColumns = [
+    {
+      title: '标题', dataIndex: 'title', key: 'title', ellipsis: true, width: 250,
+    },
+    {
+      title: '类型', dataIndex: 'article_type', key: 'article_type', width: 80,
+      render: (t: string) => t === 'video' ? <Tag color="purple">视频</Tag> : <Tag color="blue">图文</Tag>,
+    },
+    {
+      title: '图片数', dataIndex: 'images_count', key: 'images_count', width: 80,
+      render: (n: number) => <span>{n}</span>,
+    },
+    {
+      title: '内容预览', dataIndex: 'content', key: 'content', ellipsis: true,
+      render: (c: string) => {
+        const text = c.replace(/[#*_\[\]()>!`~-]/g, '').replace(/\n+/g, ' ').trim();
+        return <span style={{ color: '#666', fontSize: 12 }}>{text.slice(0, 100)}</span>;
+      },
+    },
+  ];
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
@@ -215,6 +278,7 @@ const ArticleList: React.FC = () => {
             onChange={setSelectedTagId}
             options={tags.map(t => ({ label: t.name, value: t.id }))}
           />
+          <Button icon={<FolderOpenOutlined />} loading={scanLoading} onClick={handleScan}>扫描文章</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/articles/new')}>新建文章</Button>
         </Space>
       </div>
@@ -229,6 +293,60 @@ const ArticleList: React.FC = () => {
           onSuccess={handlePublishSuccess}
         />
       )}
+      <Modal
+        title="扫描结果"
+        open={scanModalOpen}
+        onCancel={() => { setScanModalOpen(false); setScanResult(null); }}
+        width={800}
+        footer={
+          scanResult && scanResult.new_articles.length > 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Checkbox checked={extractMedia} onChange={e => setExtractMedia(e.target.checked)}>
+                将图片素材导入到素材库
+              </Checkbox>
+              <Space>
+                <Button onClick={() => { setScanModalOpen(false); setScanResult(null); }}>取消</Button>
+                <Button
+                  type="primary"
+                  loading={importLoading}
+                  disabled={selectedRowKeys.length === 0}
+                  onClick={handleImport}
+                >
+                  导入选中（{selectedRowKeys.length}）
+                </Button>
+              </Space>
+            </div>
+          ) : null
+        }
+      >
+        {scanResult && (
+          <>
+            <div style={{ marginBottom: 12, color: '#666' }}>
+              扫描到 <b>{scanResult.total_scanned}</b> 个文章目录，
+              新发现 <b style={{ color: '#1890ff' }}>{scanResult.new_articles.length}</b> 篇，
+              已存在 <b>{scanResult.existing_count}</b> 篇
+            </div>
+            {scanResult.new_articles.length > 0 ? (
+              <Table
+                columns={scanColumns}
+                dataSource={scanResult.new_articles}
+                rowKey={(_, index) => index!}
+                size="small"
+                pagination={false}
+                scroll={{ y: 400 }}
+                rowSelection={{
+                  selectedRowKeys,
+                  onChange: setSelectedRowKeys,
+                }}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                未发现新的文章目录
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };

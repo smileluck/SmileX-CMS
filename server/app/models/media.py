@@ -14,7 +14,7 @@ class Media(Base):
     file_type = Column(String(50))
     file_size = Column(Integer)
     media_type = Column(String(20), default="image")
-    article_id = Column(Integer, ForeignKey("articles.id"), nullable=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -3,6 +3,7 @@ from typing import Any, Dict
 from .base import BasePublishPlugin, GenerateResult, PublishResult
 from .publish_utils import (
     resolve_image_paths_for_local,
+    strip_platform_metadata,
     markdown_to_styled_html,
     save_published_file,
 )
@@ -16,7 +17,8 @@ class ZhihuPlugin(BasePublishPlugin):
     auth_method = "cookie"
 
     def generate(self, article, options: Dict[str, Any]) -> GenerateResult:
-        content = resolve_image_paths_for_local(article.content or "")
+        content = strip_platform_metadata(article.content or "")
+        content = resolve_image_paths_for_local(content)
         try:
             html = markdown_to_styled_html(content, ZHIHU_ELEMENT_STYLES, ZHIHU_CODE_BLOCK_STYLE)
         except Exception as e:

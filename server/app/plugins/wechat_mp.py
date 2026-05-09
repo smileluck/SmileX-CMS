@@ -12,6 +12,7 @@ from .base import BasePublishPlugin, GenerateResult, PublishResult
 from .publish_utils import (
     resolve_article_dir,
     resolve_image_paths_for_local,
+    strip_platform_metadata,
     markdown_to_styled_html,
     save_published_file,
 )
@@ -227,9 +228,10 @@ class WeChatMPPlugin(BasePublishPlugin):
     def generate(self, article, options: Dict[str, Any]) -> GenerateResult:
         content_override = options.get("_content_override")
         if content_override:
-            content = content_override
+            content = strip_platform_metadata(content_override)
         else:
-            content = resolve_image_paths_for_local(article.content or "")
+            content = strip_platform_metadata(article.content or "")
+            content = resolve_image_paths_for_local(content)
         try:
             html_content = self._convert_markdown_to_html(content)
         except Exception as e:

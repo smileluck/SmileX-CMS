@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 from .base import BasePublishPlugin, GenerateResult, PublishResult
-from .publish_utils import resolve_image_paths_for_local, save_published_file
+from .publish_utils import resolve_image_paths_for_local, strip_platform_metadata, save_published_file
 
 
 class JuejinPlugin(BasePublishPlugin):
@@ -11,7 +11,8 @@ class JuejinPlugin(BasePublishPlugin):
     auth_method = "cookie"
 
     def generate(self, article, options: Dict[str, Any]) -> GenerateResult:
-        content = resolve_image_paths_for_local(article.content or "")
+        content = strip_platform_metadata(article.content or "")
+        content = resolve_image_paths_for_local(content)
         output_path = save_published_file(article, content, self.platform_name, ext="md")
         return GenerateResult(success=True, output_path=output_path, content=content)
 

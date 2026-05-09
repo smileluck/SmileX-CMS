@@ -15,6 +15,11 @@ from .wechat_styles import apply_inline_styles
 logger = logging.getLogger(__name__)
 
 
+def strip_platform_metadata(markdown_content: str) -> str:
+    """Remove :::platform metadata blocks from markdown content."""
+    return re.sub(r'^:::\w+\s*\n[\s\S]*?\n:::\s*$', '', markdown_content, flags=re.MULTILINE).strip()
+
+
 def resolve_article_dir(article) -> Optional[Path]:
     if not article.file_path:
         return None

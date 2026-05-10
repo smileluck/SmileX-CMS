@@ -29,6 +29,7 @@ from ..config import BASE_STORAGE_DIR
 from ..routes.settings import (
     get_articles_dir as _get_articles_dir,
     get_videos_dir as _get_videos_dir,
+    get_media_dir as _get_media_dir,
     _get_base_storage_dir,
 )
 from ..dependencies import get_current_user
@@ -569,6 +570,21 @@ def delete_article(
         )
 
     if article.file_path:
+        media_records = db.query(Media).filter(Media.article_id == article_id).all()
+        media_dir = _get_media_dir(db, current_user.id)
+        media_dir.mkdir(parents=True, exist_ok=True)
+
+        for media in media_records:
+            old_path = Path(media.file_path)
+            if not old_path.is_absolute():
+                old_path = BASE_STORAGE_DIR / old_path
+            if old_path.exists():
+                ext = old_path.suffix.lower()
+                new_filename = f"{media.snow_id}{ext}"
+                new_path = media_dir / new_filename
+                shutil.move(str(old_path), str(new_path))
+                media.file_path = new_path.relative_to(BASE_STORAGE_DIR).as_posix()
+
         content_dir = _get_content_dir(article.article_type, db, current_user.id)
         article_dir = _resolve_article_dir(article, content_dir)
         if article_dir.exists():

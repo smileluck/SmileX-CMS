@@ -47,6 +47,11 @@ def _migrate_db(engine):
             "column": "article_title_snapshot",
             "definition": "VARCHAR(255)",
         },
+        {
+            "table": "media",
+            "column": "file_hash",
+            "definition": "VARCHAR(64)",
+        },
     ]
 
     insp = inspect(engine)

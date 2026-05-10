@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -6,6 +6,9 @@ from ..database import Base
 
 class Media(Base):
     __tablename__ = "media"
+    __table_args__ = (
+        Index("ix_media_file_hash_user_id", "file_hash", "user_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     snow_id = Column(String(20), unique=True, index=True, nullable=False)
@@ -13,6 +16,7 @@ class Media(Base):
     file_path = Column(String(500), nullable=False)
     file_type = Column(String(50))
     file_size = Column(Integer)
+    file_hash = Column(String(64), nullable=True)
     media_type = Column(String(20), default="image")
     article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

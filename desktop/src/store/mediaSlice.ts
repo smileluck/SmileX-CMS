@@ -35,7 +35,11 @@ const mediaSlice = createSlice({
       .addCase(fetchMedia.pending, (state) => { state.isLoading = true; })
       .addCase(fetchMedia.fulfilled, (state, action) => { state.isLoading = false; state.items = action.payload; })
       .addCase(fetchMedia.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; })
-      .addCase(uploadMedia.fulfilled, (state, action) => { state.items.unshift(action.payload); });
+      .addCase(uploadMedia.fulfilled, (state, action) => {
+        if (!state.items.some(m => m.id === action.payload.id)) {
+          state.items.unshift(action.payload);
+        }
+      });
   },
 });
 

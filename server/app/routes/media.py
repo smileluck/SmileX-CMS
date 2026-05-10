@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 import logging
 from datetime import datetime, timezone
@@ -25,6 +26,21 @@ from .articles import _article_dir as _calc_article_dir
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/media", tags=["media"])
+
+
+def compute_file_hash(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _find_duplicate(db, user_id, file_hash, article_id=None):
+    q = db.query(Media).filter(
+        Media.file_hash == file_hash, Media.user_id == user_id
+    )
+    if article_id is not None:
+        q = q.filter(Media.article_id == article_id)
+    else:
+        q = q.filter(Media.article_id.is_(None))
+    return q.first()
 
 
 def validate_file_extension(filename: str) -> str:
@@ -69,6 +85,15 @@ async def upload_file(
             detail=f"File too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
         )
 
+    file_hash = compute_file_hash(content)
+    existing = _find_duplicate(db, current_user.id, file_hash, article_id=None)
+    if existing:
+        logger.info(
+            "Dedup hit: user=%d, hash=%s, returning existing snow_id=%s",
+            current_user.id, file_hash, existing.snow_id,
+        )
+        return existing
+
     snow_id = generate_snow_id()
     safe_filename = f"{snow_id}{ext}"
     media_dir = _get_media_dir(db, current_user.id)
@@ -108,6 +133,7 @@ async def upload_file(
         file_path=relative_path,
         file_type=mime_type,
         file_size=len(content),
+        file_hash=file_hash,
         media_type=media_type,
         user_id=current_user.id,
     )
@@ -149,6 +175,20 @@ async def upload_to_article(
             status_code=413,
             detail=f"File too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
         )
+
+    file_hash = compute_file_hash(content)
+    existing = _find_duplicate(db, current_user.id, file_hash, article_id=article_id)
+    if existing:
+        logger.info(
+            "Dedup hit (article): user=%d, hash=%s, article_id=%d, returning existing snow_id=%s",
+            current_user.id, file_hash, article_id, existing.snow_id,
+        )
+        resp = MediaResponse.model_validate(existing)
+        if existing.file_path:
+            images_part = existing.file_path.split("/images/")
+            if len(images_part) == 2:
+                resp.markdown_path = f"images/{images_part[1]}"
+        return resp
 
     article_dir = _resolve_article_dir(article, db, current_user.id)
     images_dir = article_dir / "images"
@@ -200,6 +240,7 @@ async def upload_to_article(
         file_path=relative_path,
         file_type=mime_type,
         file_size=len(content),
+        file_hash=file_hash,
         media_type=media_type,
         article_id=article_id,
         user_id=current_user.id,

@@ -590,6 +590,7 @@ def delete_article(
                 new_path = media_dir / new_filename
                 shutil.move(str(old_path), str(new_path))
                 media.file_path = new_path.relative_to(BASE_STORAGE_DIR).as_posix()
+            media.article_id = None
 
         content_dir = _get_content_dir(article.article_type, db, current_user.id)
         article_dir = _resolve_article_dir(article, content_dir)

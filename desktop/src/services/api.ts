@@ -225,6 +225,10 @@ class ApiService {
     await this.client.post(`/publish/tasks/${id}/cancel`);
   }
 
+  async clearPublishTasks(): Promise<void> {
+    await this.client.delete('/publish/tasks');
+  }
+
   async getTags(): Promise<Tag[]> {
     const { data } = await this.client.get<Tag[]>('/tags');
     return data;

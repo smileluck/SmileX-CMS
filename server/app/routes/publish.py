@@ -449,3 +449,17 @@ def cancel_publish_task(
         raise HTTPException(status_code=400, detail="Task cannot be cancelled")
     task.status = "cancelled"
     db.commit()
+
+
+@router.delete("/tasks", status_code=status.HTTP_204_NO_CONTENT)
+def clear_publish_tasks(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db.query(PublishLog).filter(
+        PublishLog.task_id.in_(
+            db.query(PublishTask.id).filter(PublishTask.user_id == current_user.id)
+        )
+    ).delete(synchronize_session="fetch")
+    db.query(PublishTask).filter(PublishTask.user_id == current_user.id).delete()
+    db.commit()

@@ -4,7 +4,7 @@ import {
   ReloadOutlined, LinkOutlined, EyeOutlined, SearchOutlined,
   CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined,
   LoadingOutlined, StopOutlined, RedoOutlined, CloudOutlined,
-  LaptopOutlined, HistoryOutlined,
+  LaptopOutlined, HistoryOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -137,6 +137,25 @@ const PublishHistory: React.FC = () => {
   };
 
   const activeFilters = [platformFilter, statusFilter, methodFilter, articleIdFilter, searchText].filter(Boolean).length;
+
+  const handleClearAll = () => {
+    Modal.confirm({
+      title: '确认清空',
+      content: '确定要清空所有发布历史记录吗？此操作不可恢复。',
+      okText: '清空',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await apiService.clearPublishTasks();
+          message.success('已清空发布历史');
+          loadTasks();
+        } catch (e: any) {
+          message.error(e.response?.data?.detail || '清空失败');
+        }
+      },
+    });
+  };
 
   const columns = [
     {
@@ -283,7 +302,12 @@ const PublishHistory: React.FC = () => {
             </Tag>
           )}
         </div>
-        <Button icon={<ReloadOutlined />} onClick={loadTasks} size="small">刷新</Button>
+        <Space size={8}>
+          <Button icon={<ReloadOutlined />} onClick={loadTasks} size="small">刷新</Button>
+          {total > 0 && (
+            <Button icon={<DeleteOutlined />} onClick={handleClearAll} size="small" danger>清空</Button>
+          )}
+        </Space>
       </div>
 
       {/* Filters */}

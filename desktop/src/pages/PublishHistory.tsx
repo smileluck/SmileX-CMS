@@ -198,27 +198,48 @@ const PublishHistory: React.FC = () => {
     {
       title: '详情', key: 'detail', ellipsis: true,
       render: (_: any, record: any) => {
-        if (record.status === 'failed' && record.error_message) {
+        if (record.status === 'failed') {
           return (
-            <Tooltip title={record.error_message}>
-              <span style={{ color: '#ff4d4f', fontSize: 12 }}>{record.error_message}</span>
-            </Tooltip>
+            <Space size={8}>
+              <Tooltip title={record.error_message || '未知错误'}>
+                <span style={{ color: '#ff4d4f', fontSize: 12 }}>{record.error_message || '未知错误'}</span>
+              </Tooltip>
+              <a style={{ fontSize: 12 }} onClick={() => handleRetry(record.id)}>
+                <RedoOutlined /> 重试
+              </a>
+            </Space>
+          );
+        }
+        if (['pending', 'running'].includes(record.status)) {
+          return (
+            <a style={{ fontSize: 12, color: '#ff4d4f' }} onClick={() => handleCancel(record.id)}>
+              <StopOutlined /> 取消
+            </a>
           );
         }
         if (record.status === 'success' && record.platform_post_url) {
           if (record.publish_method === 'local') {
             return (
               <Tooltip title={record.platform_post_url}>
-                <span style={{ fontSize: 12, color: '#666' }}>{record.platform_post_url}</span>
+                <a style={{ fontSize: 12 }} onClick={() => handlePreview(record.id)}>
+                  <EyeOutlined style={{ marginRight: 4 }} />{record.platform_post_url}
+                </a>
               </Tooltip>
             );
           }
           return (
-            <Tooltip title={record.platform_post_url}>
-              <a href={record.platform_post_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
-                <LinkOutlined style={{ marginRight: 4 }} />查看原文
-              </a>
-            </Tooltip>
+            <Space size={8}>
+              <Tooltip title="预览发布内容">
+                <a style={{ fontSize: 12 }} onClick={() => handlePreview(record.id)}>
+                  <EyeOutlined style={{ marginRight: 4 }} />预览
+                </a>
+              </Tooltip>
+              <Tooltip title={record.platform_post_url}>
+                <a href={record.platform_post_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+                  <LinkOutlined style={{ marginRight: 4 }} />原文
+                </a>
+              </Tooltip>
+            </Space>
           );
         }
         return <span style={{ color: '#ccc' }}>-</span>;
@@ -230,28 +251,6 @@ const PublishHistory: React.FC = () => {
         <Tooltip title={t ? new Date(t).toLocaleString() : '-'}>
           <span style={{ fontSize: 12, color: '#666' }}>{formatTime(t)}</span>
         </Tooltip>
-      ),
-    },
-    {
-      title: '操作', key: 'action', width: 120, align: 'center' as const,
-      render: (_: any, record: any) => (
-        <Space size={4}>
-          {record.status === 'success' && record.platform_post_url && (
-            <Tooltip title="预览">
-              <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => handlePreview(record.id)} />
-            </Tooltip>
-          )}
-          {record.status === 'failed' && (
-            <Tooltip title="重试">
-              <Button size="small" type="text" icon={<RedoOutlined />} onClick={() => handleRetry(record.id)} />
-            </Tooltip>
-          )}
-          {['pending', 'running'].includes(record.status) && (
-            <Tooltip title="取消">
-              <Button size="small" type="text" danger icon={<StopOutlined />} onClick={() => handleCancel(record.id)} />
-            </Tooltip>
-          )}
-        </Space>
       ),
     },
   ];

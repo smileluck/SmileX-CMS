@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Table, Tag, Space, message, Modal, Spin } from 'antd';
+import { Button, Table, Tag, Space, message, Modal, Spin, Tooltip } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
@@ -83,7 +83,13 @@ const VideoList: React.FC = () => {
         <Space>
           <Button size="small" icon={<PlayCircleOutlined />} onClick={() => handlePreview(record)}>查看</Button>
           <Button size="small" icon={<EditOutlined />} onClick={() => navigate(`/videos/${record.id}/edit`)}>编辑</Button>
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
+          {record.status === 'published' ? (
+            <Tooltip title="已发布的视频不允许删除">
+              <Button size="small" danger icon={<DeleteOutlined />} disabled>删除</Button>
+            </Tooltip>
+          ) : (
+            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
+          )}
         </Space>
       ),
     },

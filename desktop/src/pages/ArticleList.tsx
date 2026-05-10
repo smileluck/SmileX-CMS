@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Table, Tag, Space, Input, message, Modal, Tooltip, Select, Checkbox } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined, FolderOpenOutlined, StopOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchArticles, deleteArticle } from '../store/articleSlice';
@@ -237,7 +237,13 @@ const ArticleList: React.FC = () => {
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => navigate(`/articles/${record.id}/edit`)}>编辑</Button>
           <Button size="small" type="primary" icon={<SendOutlined />} onClick={() => handlePublish(record.id)}>发布</Button>
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
+          {record.status === 'published' ? (
+            <Tooltip title="已发布的文章不允许删除">
+              <Button size="small" danger icon={<DeleteOutlined />} disabled>删除</Button>
+            </Tooltip>
+          ) : (
+            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
+          )}
         </Space>
       ),
     },

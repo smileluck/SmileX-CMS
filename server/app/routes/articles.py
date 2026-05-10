@@ -569,6 +569,12 @@ def delete_article(
             status_code=status.HTTP_404_NOT_FOUND, detail="Article not found"
         )
 
+    if article.status == "published":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="已发布的文章不允许删除，请先取消发布",
+        )
+
     if article.file_path:
         media_records = db.query(Media).filter(Media.article_id == article_id).all()
         media_dir = _get_media_dir(db, current_user.id)

@@ -22,6 +22,8 @@ class MediaResponse(BaseModel):
     def set_article_title(cls, values):
         if hasattr(values, "article") and values.article:
             values.article_title = values.article.title
+        elif not getattr(values, "article_title", None):
+            values.article_title = "通用"
         return values
 
     class Config:

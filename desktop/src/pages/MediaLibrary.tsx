@@ -76,7 +76,7 @@ const MediaLibrary: React.FC = () => {
                 description={
                   <>
                     {m.file_size ? `${(m.file_size / 1024).toFixed(1)} KB` : ''}
-                    {m.article_title && <div>关联文章：{m.article_title}</div>}
+                    <div>来源文章：{m.article_title || '通用'}</div>
                   </>
                 }
               />

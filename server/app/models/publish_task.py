@@ -19,6 +19,7 @@ class PublishTask(Base):
     platform_post_id = Column(String(100))
     platform_post_url = Column(String(500))
     error_message = Column(Text)
+    article_version = Column(Integer, nullable=True)
     retry_count = Column(Integer, default=0)
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))

@@ -37,6 +37,11 @@ def _migrate_db(engine):
             "column": "platform_name",
             "definition": "VARCHAR(50)",
         },
+        {
+            "table": "publish_tasks",
+            "column": "article_version",
+            "definition": "INTEGER",
+        },
     ]
 
     insp = inspect(engine)

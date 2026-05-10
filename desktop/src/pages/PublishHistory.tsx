@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Table, Tag, Button, Space, Select, Input, message, Tooltip, Empty } from 'antd';
-import { ReloadOutlined, LinkOutlined } from '@ant-design/icons';
+import { Table, Tag, Button, Space, Select, Input, message, Tooltip, Empty, Modal, Spin } from 'antd';
+import { ReloadOutlined, LinkOutlined, EyeOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
@@ -52,6 +52,10 @@ const PublishHistory: React.FC = () => {
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   const loadTasks = useCallback(() => {
     const params: any = { skip: (page - 1) * pageSize, limit: pageSize };
     if (platformFilter) params.platform_name = platformFilter;
@@ -89,6 +93,21 @@ const PublishHistory: React.FC = () => {
     }
   };
 
+  const handlePreview = async (id: number) => {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewHtml('');
+    try {
+      const html = await apiService.getPublishTaskPreview(id);
+      setPreviewHtml(html);
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '预览加载失败');
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const columns = [
     {
       title: '文章', key: 'article', width: 200, ellipsis: true,
@@ -97,6 +116,10 @@ const PublishHistory: React.FC = () => {
           {record.article_title || `文章 #${record.article_id}`}
         </a>
       ),
+    },
+    {
+      title: '版本', key: 'version', width: 70, align: 'center' as const,
+      render: (_: any, record: any) => record.article_version != null ? `v${record.article_version}` : '-',
     },
     {
       title: '平台', key: 'platform', width: 160,
@@ -123,12 +146,22 @@ const PublishHistory: React.FC = () => {
       render: (s: string) => { const info = statusMap[s] || { color: 'default', label: s }; return <Tag color={info.color}>{info.label}</Tag>; },
     },
     {
-      title: '链接', key: 'url', width: 60, align: 'center' as const,
-      render: (_: any, record: any) => record.platform_post_url ? (
-        <Tooltip title={record.platform_post_url}>
-          <a href={record.platform_post_url} target="_blank" rel="noopener noreferrer"><LinkOutlined /></a>
-        </Tooltip>
-      ) : '-',
+      title: '链接', key: 'url', width: 120, ellipsis: true,
+      render: (_: any, record: any) => {
+        if (!record.platform_post_url) return '-';
+        if (record.publish_method === 'local') {
+          return (
+            <Tooltip title={record.platform_post_url}>
+              <span style={{ fontSize: 12, color: '#666', wordBreak: 'break-all' }}>{record.platform_post_url}</span>
+            </Tooltip>
+          );
+        }
+        return (
+          <Tooltip title={record.platform_post_url}>
+            <a href={record.platform_post_url} target="_blank" rel="noopener noreferrer"><LinkOutlined /></a>
+          </Tooltip>
+        );
+      },
     },
     {
       title: '错误信息', dataIndex: 'error_message', key: 'error_message', ellipsis: true,
@@ -139,9 +172,12 @@ const PublishHistory: React.FC = () => {
       render: (t: string) => t ? new Date(t).toLocaleString() : '-',
     },
     {
-      title: '操作', key: 'action', width: 120,
+      title: '操作', key: 'action', width: 160,
       render: (_: any, record: any) => (
         <Space>
+          {record.status === 'success' && record.platform_post_url && (
+            <Button size="small" icon={<EyeOutlined />} onClick={() => handlePreview(record.id)}>预览</Button>
+          )}
           {record.status === 'failed' && <Button size="small" onClick={() => handleRetry(record.id)}>重试</Button>}
           {['pending', 'running'].includes(record.status) && <Button size="small" danger onClick={() => handleCancel(record.id)}>取消</Button>}
         </Space>
@@ -204,6 +240,22 @@ const PublishHistory: React.FC = () => {
           />
         )}
       </div>
+      <Modal
+        title="发布预览"
+        open={previewOpen}
+        onCancel={() => setPreviewOpen(false)}
+        footer={null}
+        width={800}
+        styles={{ body: { height: 500, overflow: 'auto', padding: 0 } }}
+      >
+        {previewLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Spin tip="加载中..." />
+          </div>
+        ) : (
+          <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+        )}
+      </Modal>
     </div>
   );
 };

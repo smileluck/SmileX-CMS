@@ -165,6 +165,7 @@ export interface PublishTask {
   updated_at: string;
   article_title: string | null;
   account_name: string | null;
+  article_version: number | null;
 }
 
 export interface PublishTaskListResponse {

@@ -47,6 +47,7 @@ class PublishTaskResponse(BaseModel):
     updated_at: datetime
     article_title: Optional[str] = None
     account_name: Optional[str] = None
+    article_version: Optional[int] = None
 
     class Config:
         from_attributes = True

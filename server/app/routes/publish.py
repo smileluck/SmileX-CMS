@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 import logging
+from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from ..database import get_db, SessionLocal
 from ..models.user import User
@@ -9,6 +11,7 @@ from ..models.article import Article
 from ..models.platform import PlatformAccount
 from ..models.publish_task import PublishTask
 from ..models.publish_log import PublishLog
+from ..models.article_version import ArticleVersion
 from ..schemas.publish import (
     PublishTaskCreate,
     PublishTaskResponse,
@@ -32,6 +35,17 @@ from ..plugins.juejin_styles import JUEJIN_ELEMENT_STYLES, JUEJIN_CODE_BLOCK_STY
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/publish", tags=["publish"])
+
+
+def _get_article_version(article_id: int, db: Session) -> int | None:
+    latest = (
+        db.query(ArticleVersion.version_number)
+        .filter(ArticleVersion.article_id == article_id)
+        .order_by(ArticleVersion.version_number.desc())
+        .first()
+    )
+    return latest[0] if latest else None
+
 
 _PLATFORM_STYLES = {
     "xiaohongshu": (XIAOHONGSHU_ELEMENT_STYLES, XIAOHONGSHU_CODE_BLOCK_STYLE),
@@ -94,6 +108,7 @@ def publish_local(
     results: list[PublishLocalResultItem] = []
     all_success = True
     now = datetime.now(timezone.utc)
+    article_version = _get_article_version(article.id, db)
     for name in req.platform_names:
         plugin = PluginRegistry.get(name)
         if not plugin:
@@ -113,6 +128,8 @@ def publish_local(
             status="success" if gen.success else "failed",
             publish_method="local",
             error_message=gen.error_message,
+            platform_post_url=gen.output_path if gen.success else None,
+            article_version=article_version,
             started_at=now,
             completed_at=now,
         )
@@ -231,6 +248,7 @@ def create_publish_tasks(
         raise HTTPException(status_code=404, detail="Article not found")
 
     created_tasks = []
+    article_version = _get_article_version(article.id, db)
     for pa_id in task_create.platform_account_ids:
         account = (
             db.query(PlatformAccount)
@@ -251,6 +269,7 @@ def create_publish_tasks(
             user_id=current_user.id,
             status="pending",
             publish_method=plugin.auth_method,
+            article_version=article_version,
         )
         db.add(task)
         db.flush()
@@ -346,6 +365,31 @@ def get_publish_task_logs(
         .order_by(PublishLog.created_at)
         .all()
     )
+
+
+@router.get("/tasks/{task_id}/preview", response_class=HTMLResponse)
+def preview_publish_task(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = (
+        db.query(PublishTask)
+        .filter(PublishTask.id == task_id, PublishTask.user_id == current_user.id)
+        .first()
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="Publish task not found")
+
+    file_path = task.platform_post_url
+    if not file_path:
+        raise HTTPException(status_code=404, detail="No preview available")
+
+    p = Path(file_path)
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Preview file not found")
+
+    return p.read_text(encoding="utf-8")
 
 
 @router.post("/tasks/{task_id}/retry", response_model=PublishTaskResponse)

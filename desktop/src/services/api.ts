@@ -211,6 +211,11 @@ class ApiService {
     return data;
   }
 
+  async getPublishTaskPreview(taskId: number): Promise<string> {
+    const { data } = await this.client.get<string>(`/publish/tasks/${taskId}/preview`);
+    return data;
+  }
+
   async retryPublishTask(id: number): Promise<PublishTask> {
     const { data } = await this.client.post<PublishTask>(`/publish/tasks/${id}/retry`);
     return data;

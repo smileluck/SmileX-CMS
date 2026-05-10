@@ -196,7 +196,7 @@ class ApiService {
     return data;
   }
 
-  async getPublishTasks(params?: { status?: string; article_id?: number; platform_name?: string; publish_method?: string; skip?: number; limit?: number }): Promise<PublishTaskListResponse> {
+  async getPublishTasks(params?: { status?: string; article_id?: number; platform_name?: string; publish_method?: string; search?: string; skip?: number; limit?: number }): Promise<PublishTaskListResponse> {
     const { data } = await this.client.get<PublishTaskListResponse>('/publish/tasks', { params });
     return data;
   }

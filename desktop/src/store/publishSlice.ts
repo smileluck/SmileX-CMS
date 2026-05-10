@@ -12,7 +12,7 @@ interface PublishState {
 
 const initialState: PublishState = { tasks: [], total: 0, currentLogs: [], isLoading: false, error: null };
 
-export const fetchPublishTasks = createAsyncThunk<PublishTaskListResponse, { status?: string; article_id?: number; platform_name?: string; publish_method?: string; skip?: number; limit?: number } | undefined>('publish/fetch', async (params, { rejectWithValue }) => {
+export const fetchPublishTasks = createAsyncThunk<PublishTaskListResponse, { status?: string; article_id?: number; platform_name?: string; publish_method?: string; search?: string; skip?: number; limit?: number } | undefined>('publish/fetch', async (params, { rejectWithValue }) => {
   try {
     return await apiService.getPublishTasks(params);
   } catch (error: any) {

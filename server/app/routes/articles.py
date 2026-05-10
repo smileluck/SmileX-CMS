@@ -130,6 +130,29 @@ def _sync_article_tags(db: Session, article: Article, tag_ids: List[int], user_i
     article.tags = tag_names
 
 
+def _sync_media_references(db: Session, article: Article, content: str):
+    """根据文章内容中的图片引用，同步媒体关联。"""
+    image_refs = set(re.findall(r'!\[.*?\]\(images/[^)]+\)', content))
+
+    cover_refs = set()
+    if article.cover_image:
+        cover_refs.add(article.cover_image)
+
+    article_media = db.query(Media).filter(Media.article_id == article.id).all()
+
+    for media in article_media:
+        if not media.file_path:
+            continue
+        parts = media.file_path.split("/images/")
+        if len(parts) != 2:
+            continue
+        ref = f"images/{parts[1]}"
+        filename = parts[1]
+
+        if ref not in image_refs and filename not in cover_refs:
+            media.article_id = None
+
+
 def _article_to_response(article: Article, db: Session = None) -> dict:
     tag_objects = []
     if article.tags_rel:
@@ -547,6 +570,7 @@ def update_article(
             raise HTTPException(
                 status_code=500, detail="Failed to save article content"
             )
+        _sync_media_references(db, article, article_update.content)
 
     db.commit()
     db.refresh(article)

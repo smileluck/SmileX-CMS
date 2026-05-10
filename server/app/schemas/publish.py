@@ -46,6 +46,7 @@ class PublishTaskResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     article_title: Optional[str] = None
+    article_snow_id: Optional[str] = None
     account_name: Optional[str] = None
     article_version: Optional[int] = None
     article_deleted: bool = False

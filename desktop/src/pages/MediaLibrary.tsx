@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Upload, Card, message, Image, Space, Button, Select, Empty } from 'antd';
+import { Upload, Card, message, Image, Space, Button, Select, Empty, Tag } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import type { RootState, AppDispatch } from '../store';
 import { fetchMedia, uploadMedia } from '../store/mediaSlice';
 import { apiService } from '../services/api';
 
 const MediaLibrary: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
   const { items, isLoading } = useSelector((state: RootState) => state.media);
   const [filterType, setFilterType] = useState<string>('image');
 
@@ -76,7 +78,21 @@ const MediaLibrary: React.FC = () => {
                 description={
                   <>
                     {m.file_size ? `${(m.file_size / 1024).toFixed(1)} KB` : ''}
-                    <div>来源文章：{m.article_title || '通用'}</div>
+                    <div>
+                      来源文章：
+                      {m.article_id ? (
+                        <a onClick={() => navigate(`/articles/${m.article_id}/edit`)} style={{ cursor: 'pointer' }}>
+                          {m.article_title || '通用'}
+                          {m.article_snow_id && (
+                            <Tag style={{ marginLeft: 4, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+                              {m.article_snow_id.slice(-6)}
+                            </Tag>
+                          )}
+                        </a>
+                      ) : (
+                        <span>{m.article_title || '通用'}</span>
+                      )}
+                    </div>
                   </>
                 }
               />

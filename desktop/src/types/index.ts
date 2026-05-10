@@ -120,6 +120,7 @@ export interface Media {
   media_type: 'image' | 'video' | 'audio' | 'other';
   article_id: number | null;
   article_title: string | null;
+  article_snow_id: string | null;
   user_id: number;
   created_at: string;
 }
@@ -164,6 +165,7 @@ export interface PublishTask {
   created_at: string;
   updated_at: string;
   article_title: string | null;
+  article_snow_id: string | null;
   account_name: string | null;
   article_version: number | null;
 }

@@ -170,6 +170,11 @@ const PublishHistory: React.FC = () => {
           ) : (
             <a onClick={() => navigate(`/articles/${record.article_id}/edit`)} style={{ cursor: 'pointer' }}>
               {record.article_title || `文章 #${record.article_id}`}
+              {record.article_snow_id && (
+                <Tag style={{ marginLeft: 4, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+                  {record.article_snow_id.slice(-6)}
+                </Tag>
+              )}
             </a>
           )}
           {record.article_version != null && (

@@ -306,6 +306,7 @@ def _enrich_task(task: PublishTask, db: Session) -> dict:
         else task.article_title_snapshot
         or (f"文章 #{task.article_id}" if task.article_id else "(已删除)")
     )
+    resp.article_snow_id = article.snow_id if article else None
     resp.article_deleted = article is None
     resp.account_name = account.account_name if account else None
     return resp

@@ -251,13 +251,13 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({
       ) : (
         <div style={{ display: 'flex', gap: 16, height: '100%' }}>
           <div style={{ flex: showPreview ? '0 0 260px' : '1 1 auto', overflow: 'auto' }}>
-            <Timeline>
-              {versions.map((v) => (
-                <Timeline.Item key={v.id} color="blue">
-                  {renderVersionItem(v)}
-                </Timeline.Item>
-              ))}
-            </Timeline>
+            <Timeline
+              items={versions.map((v) => ({
+                key: v.id,
+                color: 'blue',
+                children: renderVersionItem(v),
+              }))}
+            />
           </div>
           {renderPreviewPanel()}
         </div>

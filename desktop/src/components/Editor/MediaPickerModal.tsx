@@ -62,7 +62,7 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({ open, onClose, onSe
                 key={m.id}
                 hoverable
                 size="small"
-                bodyStyle={{ padding: 8 }}
+                styles={{ body: { padding: 8 } }}
                 style={{
                   position: 'relative',
                   border: selected ? '2px solid #1677ff' : undefined,

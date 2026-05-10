@@ -26,7 +26,7 @@ import type { HistoryEntry } from '../../hooks/useHistory';
 
 interface EditorToolbarProps {
   onInsertMarkdown: (before: string, after?: string, placeholder?: string, block?: boolean, description?: string) => void;
-  onImageUpload: (file: File, role?: 'content' | 'cover' | 'gallery') => void;
+  onImageUpload: (file: File, role?: 'content' | 'gallery') => void;
   onInsertFromLibrary?: (role?: 'content' | 'cover' | 'gallery') => void;
   editorReady: boolean;
   editMode?: 'wysiwyg' | 'markdown';
@@ -311,7 +311,6 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
       <Dropdown trigger={['click']} menu={{
         items: [
           { key: 'content', label: '插入图片', icon: <PictureOutlined /> },
-          { key: 'cover', label: '插入封面图', icon: <PictureOutlined /> },
           { key: 'gallery', label: '插入轮播图', icon: <PictureOutlined /> },
           { type: 'divider' },
           { key: 'library', label: '从素材库选择', icon: <FolderOpenOutlined /> },
@@ -326,7 +325,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
           input.accept = 'image/*';
           input.onchange = (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
-            if (file) onImageUpload(file, key as 'content' | 'cover' | 'gallery');
+            if (file) onImageUpload(file, key as 'content' | 'gallery');
           };
           input.click();
         },

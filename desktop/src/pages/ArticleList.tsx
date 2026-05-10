@@ -4,7 +4,7 @@ import { Button, Table, Tag, Space, Input, message, Modal, Tooltip, Select, Chec
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined, FolderOpenOutlined, StopOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
-import { fetchArticles, deleteArticle } from '../store/articleSlice';
+import { fetchArticles, createArticle, deleteArticle } from '../store/articleSlice';
 import { fetchTags } from '../store/tagSlice';
 import { apiService } from '../services/api';
 import PlatformIcon, { platformNameMap } from '../components/PlatformIcon';
@@ -38,6 +38,9 @@ const ArticleList: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [extractMedia, setExtractMedia] = useState(true);
   const [importLoading, setImportLoading] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [newArticleTitle, setNewArticleTitle] = useState('');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTags());
@@ -103,6 +106,22 @@ const ArticleList: React.FC = () => {
       .then(data => setPublishSummary(data))
       .catch(() => {});
   }, [dispatch, debouncedSearch, selectedTagId]);
+
+  const handleCreateArticle = async () => {
+    const trimmed = newArticleTitle.trim();
+    if (!trimmed) return;
+    setCreating(true);
+    try {
+      const result = await dispatch(createArticle({ title: trimmed, content: '' })).unwrap();
+      setCreateModalOpen(false);
+      setNewArticleTitle('');
+      navigate(`/articles/${result.id}/edit`);
+    } catch {
+      message.error('创建失败');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const handleScan = async () => {
     setScanLoading(true);
@@ -285,7 +304,7 @@ const ArticleList: React.FC = () => {
             options={tags.map(t => ({ label: t.name, value: t.id }))}
           />
           <Button icon={<FolderOpenOutlined />} loading={scanLoading} onClick={handleScan}>扫描文章</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/articles/new')}>新建文章</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>新建文章</Button>
         </Space>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -352,6 +371,26 @@ const ArticleList: React.FC = () => {
             )}
           </>
         )}
+      </Modal>
+      <Modal
+        title="新建文章"
+        open={createModalOpen}
+        okText="创建"
+        cancelText="取消"
+        confirmLoading={creating}
+        okButtonProps={{ disabled: !newArticleTitle.trim() }}
+        onOk={handleCreateArticle}
+        onCancel={() => { setCreateModalOpen(false); setNewArticleTitle(''); }}
+        destroyOnClose
+      >
+        <Input
+          placeholder="请输入文章标题"
+          value={newArticleTitle}
+          onChange={e => setNewArticleTitle(e.target.value)}
+          onPressEnter={handleCreateArticle}
+          maxLength={255}
+          autoFocus
+        />
       </Modal>
     </div>
   );

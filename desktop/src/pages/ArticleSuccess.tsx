@@ -22,7 +22,7 @@ const ArticleSuccess: React.FC = () => {
               返回列表
             </Button>
             {isPublish && (
-              <Button icon={<PlusOutlined />} onClick={() => navigate('/articles/new')}>
+              <Button icon={<PlusOutlined />} onClick={() => navigate('/articles')}>
                 继续创建
               </Button>
             )}

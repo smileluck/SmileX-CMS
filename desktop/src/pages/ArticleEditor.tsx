@@ -181,6 +181,12 @@ const ArticleEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+
+  useEffect(() => {
+    if (!id) {
+      navigate('/articles', { replace: true });
+    }
+  }, [id, navigate]);
   const { tags: allTags } = useSelector((state: RootState) => state.tag);
   const [title, setTitle] = useState('');
   const [content, setContentRaw] = useState('');

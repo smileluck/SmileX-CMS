@@ -32,7 +32,7 @@ class Article(Base):
     author = relationship("User", back_populates="articles")
     group = relationship("Group", back_populates="articles")
     media = relationship("Media", back_populates="article", passive_deletes=True)
-    publish_tasks = relationship("PublishTask", back_populates="article", cascade="all, delete-orphan", passive_deletes=True)
+    publish_tasks = relationship("PublishTask", back_populates="article", passive_deletes=True)
     tags_rel = relationship(
         "Tag", secondary="article_tags", back_populates="articles", lazy="joined"
     )

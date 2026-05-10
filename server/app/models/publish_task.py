@@ -8,7 +8,8 @@ class PublishTask(Base):
     __tablename__ = "publish_tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
+    article_title_snapshot = Column(String(255), nullable=True)
     platform_account_id = Column(
         Integer, ForeignKey("platform_accounts.id"), nullable=True
     )

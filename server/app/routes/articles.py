@@ -590,6 +590,11 @@ def delete_article(
         if article_dir.exists():
             shutil.rmtree(article_dir, ignore_errors=True)
 
+    db.query(PublishTask).filter(PublishTask.article_id == article_id).update(
+        {"article_id": None, "article_title_snapshot": article.title},
+        synchronize_session="fetch",
+    )
+
     db.delete(article)
     db.commit()
 

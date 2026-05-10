@@ -122,6 +122,7 @@ def publish_local(
         gen = plugin.generate(article, options)
         task = PublishTask(
             article_id=article.id,
+            article_title_snapshot=article.title,
             platform_account_id=None,
             platform_name=name,
             user_id=current_user.id,
@@ -160,6 +161,11 @@ async def _execute_publish(task_id: int):
     try:
         task = db.query(PublishTask).filter(PublishTask.id == task_id).first()
         if not task:
+            return
+        if not task.article:
+            task.status = "failed"
+            task.error_message = "Article has been deleted"
+            db.commit()
             return
         task.status = "running"
         task.started_at = datetime.now(timezone.utc)
@@ -264,6 +270,7 @@ def create_publish_tasks(
             continue
         task = PublishTask(
             article_id=article.id,
+            article_title_snapshot=article.title,
             platform_account_id=account.id,
             platform_name=account.platform_name,
             user_id=current_user.id,
@@ -294,7 +301,12 @@ def _enrich_task(task: PublishTask, db: Session) -> dict:
         if task.platform_account_id else None
     )
     resp = PublishTaskResponse.model_validate(task)
-    resp.article_title = article.title if article else None
+    resp.article_title = (
+        article.title if article
+        else task.article_title_snapshot
+        or (f"文章 #{task.article_id}" if task.article_id else "(已删除)")
+    )
+    resp.article_deleted = article is None
     resp.account_name = account.account_name if account else None
     return resp
 
@@ -324,7 +336,9 @@ def get_publish_tasks(
         else:
             q = q.filter(PublishTask.publish_method == publish_method)
     if search:
-        q = q.join(Article, PublishTask.article_id == Article.id).filter(Article.title.ilike(f"%{search}%"))
+        q = q.outerjoin(Article, PublishTask.article_id == Article.id).filter(
+            (Article.title.ilike(f"%{search}%")) | (PublishTask.article_title_snapshot.ilike(f"%{search}%"))
+        )
     total = q.count()
     tasks = q.order_by(PublishTask.created_at.desc()).offset(skip).limit(limit).all()
     return PublishTaskListResponse(

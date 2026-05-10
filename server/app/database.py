@@ -42,6 +42,11 @@ def _migrate_db(engine):
             "column": "article_version",
             "definition": "INTEGER",
         },
+        {
+            "table": "publish_tasks",
+            "column": "article_title_snapshot",
+            "definition": "VARCHAR(255)",
+        },
     ]
 
     insp = inspect(engine)
@@ -92,6 +97,52 @@ def _migrate_db(engine):
             conn.execute(text("DROP TABLE publish_tasks"))
             conn.execute(text("ALTER TABLE publish_tasks_new RENAME TO publish_tasks"))
             conn.execute(text("CREATE INDEX ix_publish_tasks_id ON publish_tasks(id)"))
+
+        # Migrate publish_tasks.article_id to nullable with SET NULL FK
+        cols = {c["name"]: c for c in insp.get_columns("publish_tasks")}
+        if cols.get("article_id", {}).get("nullable") is False:
+            logger.info("Migrating publish_tasks.article_id to nullable with SET NULL FK")
+            conn.execute(text(
+                "CREATE TABLE publish_tasks_new ("
+                "id INTEGER PRIMARY KEY,"
+                "article_id INTEGER,"
+                "article_title_snapshot VARCHAR(255),"
+                "platform_account_id INTEGER,"
+                "user_id INTEGER NOT NULL,"
+                "platform_name VARCHAR(50),"
+                "status VARCHAR(20),"
+                "publish_method VARCHAR(20),"
+                "platform_post_id VARCHAR(100),"
+                "platform_post_url VARCHAR(500),"
+                "error_message TEXT,"
+                "article_version INTEGER,"
+                "retry_count INTEGER,"
+                "started_at DATETIME,"
+                "completed_at DATETIME,"
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                "FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE SET NULL,"
+                "FOREIGN KEY(platform_account_id) REFERENCES platform_accounts(id),"
+                "FOREIGN KEY(user_id) REFERENCES users(id)"
+                ")"
+            ))
+            conn.execute(text(
+                "INSERT INTO publish_tasks_new "
+                "SELECT id, article_id, NULL, platform_account_id, user_id, platform_name, "
+                "status, publish_method, platform_post_id, platform_post_url, "
+                "error_message, article_version, retry_count, started_at, completed_at, "
+                "created_at, updated_at "
+                "FROM publish_tasks"
+            ))
+            conn.execute(text("DROP TABLE publish_tasks"))
+            conn.execute(text("ALTER TABLE publish_tasks_new RENAME TO publish_tasks"))
+            conn.execute(text("CREATE INDEX ix_publish_tasks_id ON publish_tasks(id)"))
+            # Backfill article_title_snapshot from articles table
+            conn.execute(text(
+                "UPDATE publish_tasks SET article_title_snapshot = "
+                "(SELECT title FROM articles WHERE id = publish_tasks.article_id) "
+                "WHERE article_title_snapshot IS NULL AND article_id IS NOT NULL"
+            ))
 
 
 def init_db():

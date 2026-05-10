@@ -31,7 +31,7 @@ class PublishLocalResponse(BaseModel):
 
 class PublishTaskResponse(BaseModel):
     id: int
-    article_id: int
+    article_id: Optional[int] = None
     platform_account_id: Optional[int] = None
     user_id: int
     platform_name: Optional[str] = None
@@ -48,6 +48,7 @@ class PublishTaskResponse(BaseModel):
     article_title: Optional[str] = None
     account_name: Optional[str] = None
     article_version: Optional[int] = None
+    article_deleted: bool = False
 
     class Config:
         from_attributes = True

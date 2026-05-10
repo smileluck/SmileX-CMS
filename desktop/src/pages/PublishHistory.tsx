@@ -143,9 +143,16 @@ const PublishHistory: React.FC = () => {
       title: '文章', key: 'article', width: 220, ellipsis: true,
       render: (_: any, record: any) => (
         <div>
-          <a onClick={() => navigate(`/articles/${record.article_id}/edit`)} style={{ cursor: 'pointer' }}>
-            {record.article_title || `文章 #${record.article_id}`}
-          </a>
+          {record.article_deleted ? (
+            <span style={{ color: '#999', textDecoration: 'line-through' }}>
+              {record.article_title || '(已删除)'}
+              <Tag color="default" style={{ marginLeft: 6, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>已删除</Tag>
+            </span>
+          ) : (
+            <a onClick={() => navigate(`/articles/${record.article_id}/edit`)} style={{ cursor: 'pointer' }}>
+              {record.article_title || `文章 #${record.article_id}`}
+            </a>
+          )}
           {record.article_version != null && (
             <Tag style={{ marginLeft: 6, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>v{record.article_version}</Tag>
           )}
@@ -204,9 +211,11 @@ const PublishHistory: React.FC = () => {
               <Tooltip title={record.error_message || '未知错误'}>
                 <span style={{ color: '#ff4d4f', fontSize: 12 }}>{record.error_message || '未知错误'}</span>
               </Tooltip>
-              <a style={{ fontSize: 12 }} onClick={() => handleRetry(record.id)}>
-                <RedoOutlined /> 重试
-              </a>
+              {!record.article_deleted && (
+                <a style={{ fontSize: 12 }} onClick={() => handleRetry(record.id)}>
+                  <RedoOutlined /> 重试
+                </a>
+              )}
             </Space>
           );
         }

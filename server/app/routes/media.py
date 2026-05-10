@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models.user import User
@@ -33,14 +34,9 @@ def compute_file_hash(content: bytes) -> str:
 
 
 def _find_duplicate(db, user_id, file_hash, article_id=None):
-    q = db.query(Media).filter(
+    return db.query(Media).filter(
         Media.file_hash == file_hash, Media.user_id == user_id
-    )
-    if article_id is not None:
-        q = q.filter(Media.article_id == article_id)
-    else:
-        q = q.filter(Media.article_id.is_(None))
-    return q.first()
+    ).first()
 
 
 def validate_file_extension(filename: str) -> str:
@@ -177,22 +173,30 @@ async def upload_to_article(
         )
 
     file_hash = compute_file_hash(content)
-    existing = _find_duplicate(db, current_user.id, file_hash, article_id=article_id)
-    if existing:
-        logger.info(
-            "Dedup hit (article): user=%d, hash=%s, article_id=%d, returning existing snow_id=%s",
-            current_user.id, file_hash, article_id, existing.snow_id,
-        )
-        resp = MediaResponse.model_validate(existing)
-        if existing.file_path:
-            images_part = existing.file_path.split("/images/")
-            if len(images_part) == 2:
-                resp.markdown_path = f"images/{images_part[1]}"
-        return resp
+    existing = _find_duplicate(db, current_user.id, file_hash)
 
     article_dir = _resolve_article_dir(article, db, current_user.id)
     images_dir = article_dir / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
+
+    if existing:
+        logger.info(
+            "Dedup hit (article): user=%d, hash=%s, existing snow_id=%s, copying to article_id=%d",
+            current_user.id, file_hash, existing.snow_id, article_id,
+        )
+        # Copy file to article's images dir for markdown, but reuse media record
+        snow_id = generate_snow_id()
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
+        ext_existing = Path(existing.file_path).suffix or ext
+        safe_filename = f"{timestamp}_{snow_id}{ext_existing}"
+        dest = images_dir / safe_filename
+        src_path = BASE_STORAGE_DIR / existing.file_path
+        if src_path.exists():
+            shutil.copy2(src_path, dest)
+        resp = MediaResponse.model_validate(existing)
+        resp.markdown_path = f"images/{safe_filename}"
+        return resp
 
     snow_id = generate_snow_id()
     now = datetime.now(timezone.utc)
@@ -340,15 +344,35 @@ def get_media_files(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    q = (
-        db.query(Media)
-        .filter(Media.user_id == current_user.id)
-        .options(joinedload(Media.article))
-    )
-    if media_type:
-        q = q.filter(Media.media_type == media_type)
-    if article_id:
-        q = q.filter(Media.article_id == article_id)
+    if not article_id:
+        # Deduplicate by file_hash: keep only one record per unique hash
+        dedup_ids = (
+            db.query(func.max(Media.id))
+            .filter(Media.user_id == current_user.id, Media.file_hash.isnot(None))
+        )
+        if media_type:
+            dedup_ids = dedup_ids.filter(Media.media_type == media_type)
+        dedup_ids = dedup_ids.group_by(Media.file_hash).subquery()
+
+        q = db.query(Media).filter(
+            Media.user_id == current_user.id,
+            (Media.id.in_(db.query(dedup_ids)) | Media.file_hash.is_(None)),
+        )
+        if media_type:
+            q = q.filter(Media.media_type == media_type)
+        q = q.options(joinedload(Media.article))
+    else:
+        q = (
+            db.query(Media)
+            .filter(
+                Media.user_id == current_user.id,
+                Media.article_id == article_id,
+            )
+            .options(joinedload(Media.article))
+        )
+        if media_type:
+            q = q.filter(Media.media_type == media_type)
+
     return q.order_by(Media.created_at.desc()).offset(skip).limit(limit).all()
 
 

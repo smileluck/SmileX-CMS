@@ -29,7 +29,8 @@ const MilkdownEditor: React.FC<{
   articleId: number | null;
   articleFilePath?: string | null;
   onPendingImage?: (mediaId: number, originalPath: string) => void;
-}> = ({ value, onChange, editorContainerRef, articleId, articleFilePath, onPendingImage }) => {
+  bridgeRef?: React.MutableRefObject<any>;
+}> = ({ value, onChange, editorContainerRef, articleId, articleFilePath, onPendingImage, bridgeRef }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const editorInstanceRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
@@ -37,6 +38,7 @@ const MilkdownEditor: React.FC<{
   const articleIdRef = useRef(articleId);
   const articleFilePathRef = useRef(articleFilePath);
   const onPendingImageRef = useRef(onPendingImage);
+  const tableNavRef = useRef<{ goToNextCell: any; isInTable: any; TextSelection: any; editorViewCtx: any } | null>(null);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { valueRef.current = value; }, [value]);
@@ -50,7 +52,7 @@ const MilkdownEditor: React.FC<{
 
     (async () => {
       try {
-        const { Editor, rootCtx, defaultValueCtx } = await import('@milkdown/core');
+        const { Editor, rootCtx, defaultValueCtx, editorViewCtx } = await import('@milkdown/core');
         const { commonmark } = await import('@milkdown/preset-commonmark');
         const { gfm } = await import('@milkdown/preset-gfm');
         const { nord } = await import('@milkdown/theme-nord');
@@ -59,6 +61,8 @@ const MilkdownEditor: React.FC<{
         const { uploadConfig, uploadPlugin } = await import('@milkdown/plugin-upload');
         const { Fragment } = await import('@milkdown/prose/model');
         const { Decoration } = await import('@milkdown/prose/view');
+        const { goToNextCell, isInTable } = await import('@milkdown/prose/tables');
+        const { TextSelection } = await import('@milkdown/prose/state');
 
         await import('@milkdown/theme-nord/style.css');
 
@@ -101,6 +105,8 @@ const MilkdownEditor: React.FC<{
           if (validNodes.length === 0) return Fragment.empty;
           return Fragment.from(validNodes);
         };
+
+        tableNavRef.current = { goToNextCell, isInTable, TextSelection, editorViewCtx };
 
         const editor = await Editor.make()
           .config((ctx) => {
@@ -150,6 +156,7 @@ const MilkdownEditor: React.FC<{
 
         if (!destroyed) {
           editorInstanceRef.current = editor;
+          if (bridgeRef) bridgeRef.current = { editorInstanceRef, tableNavRef };
         }
       } catch (err) {
         console.warn('Milkdown failed to load:', err);
@@ -606,6 +613,85 @@ const ArticleEditor: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [doSave]);
 
+  const milkdownBridgeRef = useRef<any>(null);
+
+  useEffect(() => {
+    (window as any).__milkdownTabNavigate = (shift: boolean) => {
+      if (editMode === 'wysiwyg') {
+        const bridge = milkdownBridgeRef.current;
+        if (!bridge) return;
+        const editor = bridge.editorInstanceRef.current;
+        const nav = bridge.tableNavRef.current;
+        if (!editor || !nav) return;
+        const { goToNextCell, isInTable, TextSelection, editorViewCtx: viewCtx } = nav;
+        editor.action((ctx: any) => {
+          const view = ctx.get(viewCtx);
+          if (!view || !isInTable(view.state)) return;
+          if (shift) {
+            goToNextCell(-1)(view.state, view.dispatch);
+          } else {
+            if (!goToNextCell(1)(view.state, view.dispatch)) {
+              const $pos = view.state.selection.$head;
+              for (let d = $pos.depth - 1; d >= 0; d--) {
+                if (($pos.node(d).type.spec as any).tableRole === 'table') {
+                  const after = $pos.after(d);
+                  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, after)).scrollIntoView());
+                  break;
+                }
+              }
+            }
+          }
+          // Select cell content after navigation
+          const $head = view.state.selection.$head;
+          for (let d = $head.depth; d > 0; d--) {
+            const spec = $head.node(d).type.spec as any;
+            if (spec.tableRole === 'cell' || spec.tableRole === 'header_cell') {
+              const from = $head.start(d);
+              const to = $head.end(d);
+              if (from < to) {
+                view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+              }
+              break;
+            }
+          }
+          view.focus();
+        });
+      } else {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        const pos = textarea.selectionStart;
+        const val = textarea.value;
+        const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+        const lineEnd = val.indexOf('\n', pos);
+        const line = val.substring(lineStart, lineEnd === -1 ? val.length : lineEnd);
+        if (!line.trimStart().startsWith('|')) return;
+        if (line.match(/^\|\s*[-:]+[-| :]*$/)) return;
+
+        const selectCell = (cellStart: number, cellEnd: number) => {
+          const cellText = val.substring(cellStart, cellEnd);
+          const trimmedStart = cellStart + cellText.length - cellText.trimStart().length;
+          const trimmedEnd = cellStart + cellText.trimEnd().length;
+          textarea.setSelectionRange(trimmedStart, trimmedEnd);
+        };
+
+        if (shift) {
+          const prevPipe = val.lastIndexOf('|', pos - 1);
+          if (prevPipe <= lineStart) return;
+          const beforePrev = val.lastIndexOf('|', prevPipe - 1);
+          selectCell(beforePrev + 1, prevPipe);
+        } else {
+          const nextPipe = val.indexOf('|', pos);
+          if (nextPipe === -1 || nextPipe >= (lineEnd === -1 ? val.length : lineEnd)) return;
+          const afterNext = val.indexOf('|', nextPipe + 1);
+          if (afterNext === -1 || afterNext > (lineEnd === -1 ? val.length : lineEnd)) return;
+          selectCell(nextPipe + 1, afterNext);
+        }
+        textarea.focus();
+      }
+    };
+    return () => { delete (window as any).__milkdownTabNavigate; };
+  }, [editMode]);
+
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
 
   return (
@@ -697,7 +783,7 @@ const ArticleEditor: React.FC = () => {
           />
           <div ref={editorScrollContainerRef} style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {editMode === 'wysiwyg' ? (
-              <MilkdownEditor value={content} onChange={(val) => setContent(val, '编辑内容')} editorContainerRef={editorContainerRef} articleId={articleId} articleFilePath={articleFilePath} onPendingImage={handlePendingImage} />
+              <MilkdownEditor value={content} onChange={(val) => setContent(val, '编辑内容')} editorContainerRef={editorContainerRef} articleId={articleId} articleFilePath={articleFilePath} onPendingImage={handlePendingImage} bridgeRef={milkdownBridgeRef} />
             ) : (
               <textarea
                 ref={textareaRef}

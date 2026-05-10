@@ -1,4 +1,5 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, globalShortcut } from 'electron'
+import { installExtension, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS } from 'electron-devtools-installer'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -31,7 +32,23 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  installExtension([REDUX_DEVTOOLS, REACT_DEVELOPER_TOOLS])
+    .then(([redux, react]) => console.log(`Added Extensions: ${redux.name}, ${react.name}`))
+    .catch((err) => console.log('An error occurred: ', err))
+
   createWindow()
+
+  globalShortcut.register('Ctrl+Tab', () => {
+    mainWindow?.webContents.executeJavaScript(
+      `console.log('[TabNav] __milkdownTabNavigate:', typeof window.__milkdownTabNavigate); window.__milkdownTabNavigate?.(false)`
+    )
+  })
+
+  globalShortcut.register('Ctrl+Shift+Tab', () => {
+    mainWindow?.webContents.executeJavaScript(
+      `console.log('[TabNav] __milkdownTabNavigate:', typeof window.__milkdownTabNavigate); window.__milkdownTabNavigate?.(true)`
+    )
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -40,8 +57,6 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })

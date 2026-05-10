@@ -193,6 +193,9 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
       <div style={{ textAlign: 'center', fontSize: 12, color: '#666', marginBottom: 8 }}>
         {hoveredSize.rows > 0 ? `${hoveredSize.rows} x ${hoveredSize.cols} 表格` : '选择表格大小'}
       </div>
+      <div style={{ textAlign: 'center', fontSize: 11, color: '#999', marginBottom: 6 }}>
+        <b>Ctrl+Tab</b> 跳到下一个单元格<br/><b>Ctrl+Shift+Tab</b> 跳到上一个
+      </div>
       <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: '#666' }}>行</span>
         <InputNumber min={1} max={20} size="small" value={customRows} onChange={v => setCustomRows(v || 1)} style={{ width: 60 }} />

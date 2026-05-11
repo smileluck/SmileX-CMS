@@ -19,6 +19,7 @@ class ArticleBase(BaseModel):
     article_type: str = "article"
     cover_image: Optional[str] = None
     group_id: Optional[int] = None
+    series_id: Optional[int] = None
     tags: Optional[List[str]] = None
     tag_ids: Optional[List[int]] = None
 
@@ -35,6 +36,7 @@ class ArticleUpdate(BaseModel):
     article_type: Optional[str] = None
     cover_image: Optional[str] = None
     group_id: Optional[int] = None
+    series_id: Optional[int] = None
     tags: Optional[List[str]] = None
     tag_ids: Optional[List[int]] = None
     metadata: Optional[Dict[str, Any]] = None
@@ -51,6 +53,8 @@ class ArticleResponse(BaseModel):
     file_path: Optional[str] = None
     cover_image: Optional[str] = None
     group_id: Optional[int] = None
+    series_id: Optional[int] = None
+    series_name: Optional[str] = None
     author_id: int
     tags: Optional[List[str]] = None
     tag_objects: Optional[List[TagBrief]] = Field(None, validation_alias="tag_objects")

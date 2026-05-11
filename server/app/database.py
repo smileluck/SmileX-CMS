@@ -52,6 +52,11 @@ def _migrate_db(engine):
             "column": "file_hash",
             "definition": "VARCHAR(64)",
         },
+        {
+            "table": "articles",
+            "column": "series_id",
+            "definition": "INTEGER REFERENCES series(id)",
+        },
     ]
 
     insp = inspect(engine)

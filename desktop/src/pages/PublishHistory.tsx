@@ -291,10 +291,10 @@ const PublishHistory: React.FC = () => {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Toolbar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>
-            <HistoryOutlined style={{ marginRight: 6 }} />发布历史
+            <HistoryOutlined style={{ marginRight: 8 }} />发布历史
           </h2>
           {activeFilters > 0 && (
             <Badge count={activeFilters} size="small" style={{ marginLeft: -4 }}>

@@ -17,6 +17,7 @@ import PlatformManager from './pages/PlatformManager';
 import PublishHistory from './pages/PublishHistory';
 import Settings from './pages/Settings';
 import TagManager from './pages/TagManager';
+import SeriesManager from './pages/SeriesManager';
 import Layout from './components/Layout';
 import NotFound from './pages/NotFound';
 
@@ -69,6 +70,7 @@ const AppContent: React.FC = () => (
       <Route path="/videos/:id/edit" element={<PrivateRoute><Layout><VideoEditor /></Layout></PrivateRoute>} />
       <Route path="/media" element={<PrivateRoute><Layout><MediaLibrary /></Layout></PrivateRoute>} />
       <Route path="/tags" element={<PrivateRoute><Layout><TagManager /></Layout></PrivateRoute>} />
+      <Route path="/series" element={<PrivateRoute><Layout><SeriesManager /></Layout></PrivateRoute>} />
       <Route path="/platforms" element={<PrivateRoute><Layout><PlatformManager /></Layout></PrivateRoute>} />
       <Route path="/publish/history" element={<PrivateRoute><Layout><PublishHistory /></Layout></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Layout><Settings /></Layout></PrivateRoute>} />

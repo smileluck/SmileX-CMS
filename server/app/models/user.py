@@ -25,4 +25,5 @@ class User(Base):
     platform_accounts = relationship("PlatformAccount", back_populates="user")
     publish_tasks = relationship("PublishTask", back_populates="user")
     groups = relationship("Group", back_populates="user")
+    series_rel = relationship("Series", back_populates="user")
     tags = relationship("Tag", back_populates="user")

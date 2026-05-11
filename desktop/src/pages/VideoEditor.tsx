@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Input, Button, Upload, Form, message, Space, Select, Spin } from 'antd';
-import { ArrowLeftOutlined, UploadOutlined, SaveOutlined, SwapOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, UploadOutlined, SaveOutlined, SwapOutlined, EditOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
 import { createArticle, updateArticle } from '../store/articleSlice';
@@ -121,7 +121,7 @@ const VideoEditor: React.FC = () => {
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/videos')}>返回</Button>
-        <h2>{id ? '编辑视频' : '新建视频'}</h2>
+        <h2 style={{ margin: 0, fontSize: 18 }}><EditOutlined style={{ marginRight: 8 }} />{id ? '编辑视频' : '新建视频'}</h2>
       </Space>
       <Form layout="vertical" style={{ maxWidth: 800 }}>
         <Form.Item label="标题" required>

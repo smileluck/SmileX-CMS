@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Modal, Form, Input, Select, Tag, Space, message, List, Spin, Descriptions } from 'antd';
-import { PlusOutlined, LinkOutlined, DisconnectOutlined, ThunderboltOutlined, SettingOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { PlusOutlined, LinkOutlined, DisconnectOutlined, ThunderboltOutlined, SettingOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined, CloudServerOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchPlatforms, fetchAvailablePlatforms } from '../store/platformSlice';
@@ -196,7 +196,7 @@ const PlatformManager: React.FC = () => {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>平台管理</h1>
+        <h2 style={{ margin: 0, fontSize: 18 }}><CloudServerOutlined style={{ marginRight: 8 }} />平台管理</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>绑定平台</Button>
       </div>
       <List

@@ -18,6 +18,7 @@ class Article(Base):
     file_path = Column(String(500))
     cover_image = Column(String(255))
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True, index=True)
+    series_id = Column(Integer, ForeignKey("series.id"), nullable=True, index=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     tags = Column(JSON)
     article_metadata = Column("metadata", JSON)
@@ -31,7 +32,11 @@ class Article(Base):
 
     author = relationship("User", back_populates="articles")
     group = relationship("Group", back_populates="articles")
+    series = relationship("Series", back_populates="articles")
     media = relationship("Media", back_populates="article", passive_deletes=True)
+    media_refs = relationship(
+        "ArticleMedia", back_populates="article", cascade="all, delete-orphan"
+    )
     publish_tasks = relationship("PublishTask", back_populates="article", passive_deletes=True)
     tags_rel = relationship(
         "Tag", secondary="article_tags", back_populates="articles", lazy="joined"

@@ -1,11 +1,12 @@
 import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Table, Tag, Space, Input, message, Modal, Tooltip, Select, Checkbox } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined, FolderOpenOutlined, StopOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, LinkOutlined, SendOutlined, HistoryOutlined, FolderOpenOutlined, StopOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchArticles, createArticle, deleteArticle } from '../store/articleSlice';
 import { fetchTags } from '../store/tagSlice';
+import { fetchSeries } from '../store/seriesSlice';
 import { apiService } from '../services/api';
 import PlatformIcon, { platformNameMap } from '../components/PlatformIcon';
 import PublishModal from '../components/PublishModal';
@@ -24,9 +25,11 @@ const ArticleList: React.FC = () => {
   const navigate = useNavigate();
   const { articles, isLoading } = useSelector((state: RootState) => state.article);
   const { tags } = useSelector((state: RootState) => state.tag);
+  const { series: allSeries } = useSelector((state: RootState) => state.series);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<number | undefined>(undefined);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<number | undefined>(undefined);
   const [publishSummary, setPublishSummary] = useState<Record<number, ArticlePublishStatus[]>>({});
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [publishingArticleId, setPublishingArticleId] = useState<number | null>(null);
@@ -44,6 +47,7 @@ const ArticleList: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchTags());
+    dispatch(fetchSeries());
   }, [dispatch]);
 
   useEffect(() => {
@@ -52,8 +56,8 @@ const ArticleList: React.FC = () => {
   }, [search]);
 
   useEffect(() => {
-    dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId }));
-  }, [dispatch, debouncedSearch, selectedTagId]);
+    dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId, series_id: selectedSeriesId }));
+  }, [dispatch, debouncedSearch, selectedTagId, selectedSeriesId]);
 
   useEffect(() => {
     apiService.getArticlesPublishSummary()
@@ -101,11 +105,11 @@ const ArticleList: React.FC = () => {
     setPublishModalOpen(false);
     setPublishingArticleId(null);
     message.success('发布任务已创建');
-    dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId }));
+    dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId, series_id: selectedSeriesId }));
     apiService.getArticlesPublishSummary()
       .then(data => setPublishSummary(data))
       .catch(() => {});
-  }, [dispatch, debouncedSearch, selectedTagId]);
+  }, [dispatch, debouncedSearch, selectedTagId, selectedSeriesId]);
 
   const handleCreateArticle = async () => {
     const trimmed = newArticleTitle.trim();
@@ -149,7 +153,7 @@ const ArticleList: React.FC = () => {
       message.success(`成功导入 ${result.imported_count} 篇文章${result.media_imported > 0 ? `，${result.media_imported} 个素材` : ''}`);
       setScanModalOpen(false);
       setScanResult(null);
-      dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId }));
+      dispatch(fetchArticles({ search: debouncedSearch || undefined, tag_id: selectedTagId, series_id: selectedSeriesId }));
     } catch {
       message.error('导入失败');
     } finally {
@@ -242,6 +246,10 @@ const ArticleList: React.FC = () => {
       },
     },
     {
+      title: '系列', key: 'series', width: 120,
+      render: (_: any, record: any) => record.series_name || <span style={{ color: '#ccc' }}>未分类</span>,
+    },
+    {
       title: '时间', key: 'time', width: 180,
       render: (_: any, record: any) => (
         <div style={{ fontSize: 12, lineHeight: '20px' }}>
@@ -292,16 +300,24 @@ const ArticleList: React.FC = () => {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
-        <h1>图文管理</h1>
+        <h2 style={{ margin: 0, fontSize: 18 }}><FileTextOutlined style={{ marginRight: 8 }} />图文管理</h2>
         <Space>
           <Input placeholder="搜索文章" prefix={<SearchOutlined />} value={search} onChange={e => setSearch(e.target.value)} allowClear />
           <Select
             placeholder="按标签筛选"
             allowClear
-            style={{ width: 180 }}
+            style={{ width: 160 }}
             value={selectedTagId}
             onChange={setSelectedTagId}
             options={tags.map(t => ({ label: t.name, value: t.id }))}
+          />
+          <Select
+            placeholder="按系列筛选"
+            allowClear
+            style={{ width: 160 }}
+            value={selectedSeriesId}
+            onChange={setSelectedSeriesId}
+            options={allSeries.map(s => ({ label: s.name, value: s.id }))}
           />
           <Button icon={<FolderOpenOutlined />} loading={scanLoading} onClick={handleScan}>扫描文章</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>新建文章</Button>

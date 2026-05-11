@@ -13,6 +13,7 @@ from ..models.article import Article
 from ..models.article_version import ArticleVersion
 from ..models.group import Group
 from ..models.media import Media
+from ..models.article_media import ArticleMedia
 from ..models.publish_task import PublishTask
 from ..models.platform import PlatformAccount
 from ..models.tag import Tag, ArticleTag
@@ -131,26 +132,39 @@ def _sync_article_tags(db: Session, article: Article, tag_ids: List[int], user_i
 
 
 def _sync_media_references(db: Session, article: Article, content: str):
-    """根据文章内容中的图片引用，同步媒体关联。"""
-    image_refs = set(re.findall(r'!\[.*?\]\(images/[^)]+\)', content))
+    """根据文章内容中的图片引用，同步 article_media 关联表。"""
+    image_refs = set(re.findall(r'!\[.*?\]\(images/([^)]+)\)', content))
 
     cover_refs = set()
     if article.cover_image:
         cover_refs.add(article.cover_image)
 
-    article_media = db.query(Media).filter(Media.article_id == article.id).all()
-
-    for media in article_media:
+    # 查找内容中引用的所有媒体
+    all_media = db.query(Media).filter(Media.user_id == article.author_id).all()
+    referenced_media_ids = set()
+    for media in all_media:
         if not media.file_path:
             continue
         parts = media.file_path.split("/images/")
         if len(parts) != 2:
             continue
-        ref = f"images/{parts[1]}"
         filename = parts[1]
+        if filename in image_refs or filename in cover_refs:
+            referenced_media_ids.add(media.id)
 
-        if ref not in image_refs and filename not in cover_refs:
-            media.article_id = None
+    # 删除不再引用的关联
+    db.query(ArticleMedia).filter(
+        ArticleMedia.article_id == article.id,
+        ~ArticleMedia.media_id.in_(referenced_media_ids) if referenced_media_ids else True,
+    ).delete(synchronize_session=False)
+
+    # 添加新的关联
+    existing = {
+        row.media_id
+        for row in db.query(ArticleMedia).filter(ArticleMedia.article_id == article.id).all()
+    }
+    for mid in referenced_media_ids - existing:
+        db.add(ArticleMedia(article_id=article.id, media_id=mid))
 
 
 def _article_to_response(article: Article, db: Session = None) -> dict:
@@ -186,6 +200,8 @@ def _article_to_response(article: Article, db: Session = None) -> dict:
         "file_path": article.file_path,
         "cover_image": article.cover_image,
         "group_id": article.group_id,
+        "series_id": article.series_id,
+        "series_name": article.series.name if article.series else None,
         "author_id": article.author_id,
         "tags": article.tags,
         "tag_objects": tag_objects,
@@ -434,6 +450,7 @@ def get_articles(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     group_id: Optional[int] = None,
+    series_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
     article_type: Optional[str] = None,
@@ -444,6 +461,8 @@ def get_articles(
     q = db.query(Article).filter(Article.author_id == current_user.id)
     if group_id is not None:
         q = q.filter(Article.group_id == group_id)
+    if series_id is not None:
+        q = q.filter(Article.series_id == series_id)
     if status:
         q = q.filter(Article.status == status)
     if article_type:

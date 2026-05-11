@@ -18,7 +18,7 @@ const initialState: ArticleState = {
 
 export const fetchArticles = createAsyncThunk(
   'article/fetchArticles',
-  async (params: { group_id?: number; status?: string; search?: string; tag_id?: number; article_type?: string }, { rejectWithValue }) => {
+  async (params: { group_id?: number; series_id?: number; status?: string; search?: string; tag_id?: number; article_type?: string }, { rejectWithValue }) => {
     try {
       return await apiService.getArticles(params);
     } catch (error: any) {

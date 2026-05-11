@@ -59,6 +59,8 @@ export interface Article {
   file_path: string | null;
   cover_image: string | null;
   group_id: number | null;
+  series_id: number | null;
+  series_name: string | null;
   author_id: number;
   tags: string[] | null;
   tag_objects: TagBrief[] | null;
@@ -76,6 +78,7 @@ export interface ArticleCreate {
   article_type?: string;
   cover_image?: string;
   group_id?: number;
+  series_id?: number;
   tags?: string[];
   tag_ids?: number[];
 }
@@ -88,6 +91,7 @@ export interface ArticleUpdate {
   article_type?: string;
   cover_image?: string;
   group_id?: number;
+  series_id?: number;
   tags?: string[];
   tag_ids?: number[];
   metadata?: Record<string, any>;
@@ -269,4 +273,26 @@ export interface ScanResult {
   new_articles: ScannedArticle[];
   existing_articles: string[];
   existing_count: number;
+}
+
+export interface Series {
+  id: number;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  user_id: number;
+  article_count: number;
+  created_at: string;
+}
+
+export interface SeriesCreate {
+  name: string;
+  description?: string;
+  sort_order?: number;
+}
+
+export interface SeriesUpdate {
+  name?: string;
+  description?: string;
+  sort_order?: number;
 }

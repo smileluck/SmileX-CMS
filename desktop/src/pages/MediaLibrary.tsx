@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Upload, Card, message, Image, Space, Button, Select, Empty, Tag } from 'antd';
-import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, PictureOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import type { RootState, AppDispatch } from '../store';
@@ -38,8 +38,8 @@ const MediaLibrary: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>媒体库</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}><PictureOutlined style={{ marginRight: 8 }} />媒体库</h2>
         <Space>
           <Select
             value={filterType}

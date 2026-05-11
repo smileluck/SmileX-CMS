@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Card, Row, Col, Statistic } from 'antd';
-import { FileTextOutlined, VideoCameraOutlined, CloudUploadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { FileTextOutlined, VideoCameraOutlined, CloudUploadOutlined, CheckCircleOutlined, DashboardOutlined } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import { fetchArticles } from '../store/articleSlice';
@@ -18,7 +18,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 24 }}>仪表盘</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}><DashboardOutlined style={{ marginRight: 8 }} />仪表盘</h2>
+      </div>
       <Row gutter={16}>
         <Col span={6}>
           <Card><Statistic title="总文章数" value={articles.length} prefix={<FileTextOutlined />} /></Card>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Form, Input, Button, message, Radio, Spin, Divider } from 'antd';
+import { SettingOutlined } from '@ant-design/icons';
 import { apiService } from '../services/api';
 
 const getMenuLayout = (): string => localStorage.getItem('menuLayout') || 'sidebar';
@@ -50,7 +51,9 @@ const Settings: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 24 }}>设置</h1>
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}><SettingOutlined style={{ marginRight: 8 }} />设置</h2>
+      </div>
       <Card style={{ maxWidth: 600 }}>
         <Form form={form} layout="vertical" onFinish={onFinish}>
           <Form.Item label="后端 API 地址" name="apiUrl" rules={[{ required: true }]}>

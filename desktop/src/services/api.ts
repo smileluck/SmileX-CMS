@@ -6,6 +6,7 @@ import type {
   ArticleVersion, ArticleVersionBrief, VersionDiff,
   ScannedArticle, ScanResult,
   Tag, TagCreate, TagUpdate,
+  Series, SeriesCreate, SeriesUpdate,
   Media, AppSettings,
   PlatformAccount, PlatformAccountCreate, PlatformInfo,
   PublishTask, PublishTaskCreate, PublishLog, PublishBatchResponse, PublishTaskListResponse,
@@ -71,7 +72,7 @@ class ApiService {
     return data;
   }
 
-  async getArticles(params?: { group_id?: number; status?: string; search?: string; tag_id?: number; article_type?: string }): Promise<Article[]> {
+  async getArticles(params?: { group_id?: number; series_id?: number; status?: string; search?: string; tag_id?: number; article_type?: string }): Promise<Article[]> {
     const { data } = await this.client.get<Article[]>('/articles', { params });
     return data;
   }
@@ -256,6 +257,30 @@ class ApiService {
   async migrateLegacyTags(): Promise<{ migrated: number }> {
     const { data } = await this.client.post<{ migrated: number }>('/tags/migrate-legacy');
     return data;
+  }
+
+  // Series
+  async getSeries(): Promise<Series[]> {
+    const { data } = await this.client.get<Series[]>('/series');
+    return data;
+  }
+
+  async createSeries(series: SeriesCreate): Promise<Series> {
+    const { data } = await this.client.post<Series>('/series', series);
+    return data;
+  }
+
+  async updateSeries(id: number, series: SeriesUpdate): Promise<Series> {
+    const { data } = await this.client.put<Series>(`/series/${id}`, series);
+    return data;
+  }
+
+  async deleteSeries(id: number): Promise<void> {
+    await this.client.delete(`/series/${id}`);
+  }
+
+  async sortSeries(items: Array<{ id: number; sort_order: number }>): Promise<void> {
+    await this.client.patch('/series/sort', { items });
   }
 
   getMediaUrl(filePath: string, articleStoragePath?: string): string {

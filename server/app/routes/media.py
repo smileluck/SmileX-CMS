@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from ..database import get_db
 from ..models.user import User
 from ..models.article import Article
 from ..models.media import Media
+from ..models.article_media import ArticleMedia
 from ..schemas.media import MediaResponse
 from ..snowid import generate_snow_id
 from ..config import BASE_STORAGE_DIR, MAX_UPLOAD_SIZE, ALLOWED_EXTENSIONS
@@ -184,7 +185,7 @@ async def upload_to_article(
             "Dedup hit (article): user=%d, hash=%s, existing snow_id=%s, copying to article_id=%d",
             current_user.id, file_hash, existing.snow_id, article_id,
         )
-        # Copy file to article's images dir for markdown, but reuse media record
+        # Copy file to article's images dir for markdown, reuse media record
         snow_id = generate_snow_id()
         now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%d_%H%M%S")
@@ -194,6 +195,12 @@ async def upload_to_article(
         src_path = BASE_STORAGE_DIR / existing.file_path
         if src_path.exists():
             shutil.copy2(src_path, dest)
+        # Create article-media association
+        if not db.query(ArticleMedia).filter(
+            ArticleMedia.article_id == article_id, ArticleMedia.media_id == existing.id
+        ).first():
+            db.add(ArticleMedia(article_id=article_id, media_id=existing.id))
+            db.commit()
         resp = MediaResponse.model_validate(existing)
         resp.markdown_path = f"images/{safe_filename}"
         return resp
@@ -250,6 +257,8 @@ async def upload_to_article(
         user_id=current_user.id,
     )
     db.add(db_media)
+    db.flush()
+    db.add(ArticleMedia(article_id=article_id, media_id=db_media.id))
     db.commit()
     db.refresh(db_media)
 
@@ -320,6 +329,10 @@ def copy_media_to_article(
 
     media.file_path = relative_path
     media.article_id = article_id
+    if not db.query(ArticleMedia).filter(
+        ArticleMedia.article_id == article_id, ArticleMedia.media_id == media_id
+    ).first():
+        db.add(ArticleMedia(article_id=article_id, media_id=media_id))
     db.commit()
     db.refresh(media)
 
@@ -360,7 +373,10 @@ def get_media_files(
         )
         if media_type:
             q = q.filter(Media.media_type == media_type)
-        q = q.options(joinedload(Media.article))
+        q = q.options(
+            joinedload(Media.article),
+            selectinload(Media.article_refs),
+        )
     else:
         q = (
             db.query(Media)
@@ -368,12 +384,47 @@ def get_media_files(
                 Media.user_id == current_user.id,
                 Media.article_id == article_id,
             )
-            .options(joinedload(Media.article))
+            .options(
+                joinedload(Media.article),
+                selectinload(Media.article_refs),
+            )
         )
         if media_type:
             q = q.filter(Media.media_type == media_type)
 
     return q.order_by(Media.created_at.desc()).offset(skip).limit(limit).all()
+
+
+@router.get("/{media_id}/articles")
+def get_media_articles(
+    media_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    media = (
+        db.query(Media)
+        .filter(Media.id == media_id, Media.user_id == current_user.id)
+        .first()
+    )
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    refs = (
+        db.query(ArticleMedia, Article)
+        .join(Article, ArticleMedia.article_id == Article.id)
+        .filter(ArticleMedia.media_id == media_id)
+        .all()
+    )
+    return [
+        {
+            "article_id": article.id,
+            "article_snow_id": article.snow_id,
+            "title": article.title,
+            "status": article.status,
+            "associated_at": ref.created_at.isoformat() if ref.created_at else None,
+        }
+        for ref, article in refs
+    ]
 
 
 @router.delete("/{media_id}", status_code=status.HTTP_204_NO_CONTENT)

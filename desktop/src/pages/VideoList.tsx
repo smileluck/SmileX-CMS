@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Table, Tag, Space, message, Modal, Spin, Tooltip } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, VideoCameraOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../store';
 import { fetchArticles, deleteArticle } from '../store/articleSlice';
@@ -98,7 +98,7 @@ const VideoList: React.FC = () => {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
-        <h1>视频管理</h1>
+        <h2 style={{ margin: 0, fontSize: 18 }}><VideoCameraOutlined style={{ marginRight: 8 }} />视频管理</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/videos/new')}>新建视频</Button>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Table, Spin, message, Modal, Typography, Empty } from 'antd';
-import { ArrowLeftOutlined, EyeOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, EyeOutlined, HistoryOutlined } from '@ant-design/icons';
 import { apiService } from '../services/api';
 import type { ArticleVersionBrief, VersionDiff } from '../types';
 
@@ -144,7 +144,7 @@ const ArticleVersionList: React.FC = () => {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/articles')}>
           返回
         </Button>
-        <h1 style={{ margin: 0 }}>版本历史</h1>
+        <h2 style={{ margin: 0, fontSize: 18 }}><HistoryOutlined style={{ marginRight: 8 }} />版本历史</h2>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         {loading ? (

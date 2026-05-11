@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 from .database import engine, Base, SessionLocal, init_db
-from .routes import auth, articles, groups, media, platforms, publish, tags, settings
+from .routes import auth, articles, groups, series, media, platforms, publish, tags, settings
 from .plugins.registry import PluginRegistry
 from .plugins.wechat_mp import WeChatMPPlugin
 from .plugins.xiaohongshu import XiaohongshuPlugin
@@ -49,6 +49,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(articles.router)
 app.include_router(groups.router)
+app.include_router(series.router)
 app.include_router(media.router)
 app.include_router(platforms.router)
 app.include_router(publish.router)

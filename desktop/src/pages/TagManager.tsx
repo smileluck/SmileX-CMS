@@ -137,7 +137,7 @@ const TagManager: React.FC = () => {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
-        <h1><TagsOutlined style={{ marginRight: 8 }} />标签管理</h1>
+        <h2 style={{ margin: 0, fontSize: 18 }}><TagsOutlined style={{ marginRight: 8 }} />标签管理</h2>
         <Space>
           <Button icon={<SyncOutlined />} loading={migrating} onClick={handleMigrate}>迁移旧标签</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>新建标签</Button>

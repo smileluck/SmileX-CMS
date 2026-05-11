@@ -61,6 +61,19 @@ class XiaohongshuPlugin(BasePublishPlugin):
         # Body content
         parts.append(body_html)
 
+        # Tags as hashtags
+        tag_names = []
+        if article.tags_rel:
+            tag_names = [t.name for t in article.tags_rel]
+        elif article.tags:
+            tag_names = [t for t in article.tags if isinstance(t, str)]
+
+        if tag_names:
+            hashtag_text = " ".join(f"#{name}" for name in tag_names)
+            parts.append(
+                f'<p style="margin-top:16px;color:#666;font-size:14px;">{hashtag_text}</p>'
+            )
+
         full_html = "\n".join(parts)
         output_path = save_published_file(article, full_html, self.platform_name)
 

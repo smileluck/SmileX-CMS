@@ -8,6 +8,7 @@ import {
   VideoCameraOutlined,
   PictureOutlined,
   TagsOutlined,
+  FolderOutlined,
   CloudUploadOutlined,
   HistoryOutlined,
   SettingOutlined,
@@ -24,6 +25,7 @@ const menuItems = [
   { key: '/articles', icon: <FileTextOutlined />, label: '图文管理' },
   { key: '/videos', icon: <VideoCameraOutlined />, label: '视频管理' },
   { key: '/tags', icon: <TagsOutlined />, label: '标签管理' },
+  { key: '/series', icon: <FolderOutlined />, label: '系列管理' },
   { key: '/media', icon: <PictureOutlined />, label: '媒体库' },
   { key: '/publish/history', icon: <HistoryOutlined />, label: '发布历史' },
 ];

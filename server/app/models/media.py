@@ -24,3 +24,6 @@ class Media(Base):
 
     user = relationship("User", back_populates="media")
     article = relationship("Article", back_populates="media")
+    article_refs = relationship(
+        "ArticleMedia", back_populates="media", cascade="all, delete-orphan"
+    )

@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
 import { createArticle, updateArticle } from '../store/articleSlice';
 import { fetchTags } from '../store/tagSlice';
+import { fetchSeries } from '../store/seriesSlice';
 import { apiService } from '../services/api';
 import { renderMarkdown } from '../utils/markdown';
 import { useAutoSave } from '../utils/useAutoSave';
@@ -188,9 +189,11 @@ const ArticleEditor: React.FC = () => {
     }
   }, [id, navigate]);
   const { tags: allTags } = useSelector((state: RootState) => state.tag);
+  const { series: allSeries } = useSelector((state: RootState) => state.series);
   const [title, setTitle] = useState('');
   const [content, setContentRaw] = useState('');
   const [tagIds, setTagIds] = useState<number[]>([]);
+  const [seriesId, setSeriesId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id);
   const [rawHtml, setRawHtml] = useState('');
@@ -252,6 +255,7 @@ const ArticleEditor: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchTags());
+    dispatch(fetchSeries());
     apiService.getThemes().then(setThemes).catch(() => {});
   }, [dispatch]);
 
@@ -271,6 +275,7 @@ const ArticleEditor: React.FC = () => {
       setContentRaw(article.content);
       historyManager.pushState(article.content, '加载文章');
       setTagIds(article.tag_objects?.map(t => t.id) || []);
+      setSeriesId(article.series_id);
       setArticleFilePath(article.file_path);
       setLoading(false);
       apiService.createArticleVersion(Number(id)).then(version => {
@@ -317,11 +322,11 @@ const ArticleEditor: React.FC = () => {
 
   const autoSaveFn = useCallback(async () => {
     if (!title.trim() || !articleId) return;
-    const data: any = { title, content, tag_ids: tagIds };
+    const data: any = { title, content, tag_ids: tagIds, series_id: seriesId };
     try {
       await dispatch(updateArticle({ id: articleId, data })).unwrap();
     } catch {}
-  }, [title, articleId, content, tagIds, dispatch]);
+  }, [title, articleId, content, tagIds, seriesId, dispatch]);
 
   const { status: autoSaveStatus, lastSavedAtFormatted, markSaved } = useAutoSave(autoSaveFn, content + title, 3000);
 
@@ -331,7 +336,7 @@ const ArticleEditor: React.FC = () => {
     if (!title.trim()) { message.warning('请输入标题'); return null; }
     setSaving(true);
     try {
-      const data: any = { title, content, tag_ids: tagIds };
+      const data: any = { title, content, tag_ids: tagIds, series_id: seriesId };
       let result: any;
       if (articleId) {
         result = await dispatch(updateArticle({ id: articleId, data })).unwrap();
@@ -357,7 +362,7 @@ const ArticleEditor: React.FC = () => {
           }
           setContent(updatedContent);
           setPendingImages([]);
-          await dispatch(updateArticle({ id: result.id, data: { title, content: updatedContent, tag_ids: tagIds } })).unwrap();
+          await dispatch(updateArticle({ id: result.id, data: { title, content: updatedContent, tag_ids: tagIds, series_id: seriesId } })).unwrap();
         }
       }
       historyManager.clearHistory();
@@ -368,7 +373,7 @@ const ArticleEditor: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  }, [articleId, title, content, tagIds, dispatch, navigate, pendingImages, historyManager]);
+  }, [articleId, title, content, tagIds, seriesId, dispatch, navigate, pendingImages, historyManager]);
 
   const handleSaveAndGo = useCallback(async () => {
     const result = await doSave(true);
@@ -585,6 +590,7 @@ const ArticleEditor: React.FC = () => {
     setContentRaw(article.content);
     historyManager.pushState(article.content, '恢复版本');
     setTagIds(article.tag_objects?.map((t: any) => t.id) || []);
+    setSeriesId(article.series_id);
     setVersionHistoryOpen(false);
   }, [historyManager]);
 
@@ -747,10 +753,10 @@ const ArticleEditor: React.FC = () => {
             />
             <Select
               mode="multiple"
-              maxCount={5}
+              maxCount={10}
               value={tagIds}
               onChange={setTagIds}
-              placeholder="选择标签（最多5个）"
+              placeholder="选择标签（最多10个）"
               variant="borderless"
               style={{ flex: '0 1 280px', minWidth: 160 }}
               options={allTags.map(t => ({ label: t.name, value: t.id }))}
@@ -762,6 +768,15 @@ const ArticleEditor: React.FC = () => {
                   </div>
                 </>
               )}
+            />
+            <Select
+              value={seriesId}
+              onChange={setSeriesId}
+              placeholder="选择系列"
+              variant="borderless"
+              style={{ flex: '0 1 200px', minWidth: 140 }}
+              allowClear
+              options={allSeries.map(s => ({ label: s.name, value: s.id }))}
             />
           </div>
           <EditorToolbar

@@ -352,7 +352,14 @@ const ArticleEditor: React.FC = () => {
     return () => { cancelled = true; };
   }, [rawHtml, selectedThemeId, customColor, previewPlatform]);
 
-  const displayHtml = styledHtml;
+  const xhsHashtags = useMemo(() => {
+    if (previewPlatform !== 'xiaohongshu' || tagIds.length === 0) return '';
+    const names = tagIds.map(id => allTags.find(t => t.id === id)?.name).filter(Boolean);
+    if (names.length === 0) return '';
+    return `<p style="margin-top:16px;color:#666;font-size:14px;">${names.map(n => '#' + n).join(' ')}</p>`;
+  }, [previewPlatform, tagIds, allTags]);
+
+  const displayHtml = previewPlatform === 'xiaohongshu' && xhsHashtags ? styledHtml + xhsHashtags : styledHtml;
 
   const doSave = useCallback(async (shouldNavigate: boolean = false) => {
     if (!title.trim()) { message.warning('请输入标题'); return null; }

@@ -238,15 +238,43 @@ const ArticleEditor: React.FC = () => {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
 
   const historyManager = useHistory('');
+
+  const lastSavedFieldsRef = useRef<{ title: string; content: string; tagIds: number[]; seriesId: number | null }>({
+    title: '', content: '', tagIds: [], seriesId: null,
+  });
+
+  const autoSaveFn = useCallback(async () => {
+    if (!articleId) return;
+    const last = lastSavedFieldsRef.current;
+    const data: any = {};
+    if (title !== last.title) data.title = title;
+    if (content !== last.content) data.content = content;
+    if (tagIds.length !== last.tagIds.length || tagIds.some((v, i) => v !== last.tagIds[i])) data.tag_ids = tagIds;
+    if (seriesId !== last.seriesId) data.series_id = seriesId;
+    if (Object.keys(data).length === 0) return;
+    const result: any = await dispatch(updateArticle({ id: articleId, data })).unwrap();
+    lastSavedFieldsRef.current = {
+      title: result.title ?? title,
+      content: result.content ?? content,
+      tagIds: result.tag_objects?.map((t: any) => t.id) ?? tagIds,
+      seriesId: result.series_id ?? seriesId,
+    };
+  }, [title, content, tagIds, seriesId, articleId, dispatch]);
+
+  const { status: autoSaveStatus, lastSavedAtFormatted, errorMessage, markSaved, notifyChange, flush } = useAutoSave(autoSaveFn);
+
+  useEffect(() => { markSavedRef.current = markSaved; }, [markSaved]);
+
   const setContent = useCallback((valueOrUpdater: string | ((prev: string) => string), description: string = '编辑内容') => {
     setContentRaw(prev => {
       const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(prev) : valueOrUpdater;
       if (next !== prev) {
         historyManager.pushState(next, description);
+        notifyChange();
       }
       return next;
     });
-  }, [historyManager]);
+  }, [historyManager, notifyChange]);
 
   const xhsMeta = useMemo(() => extractPlatformMeta(content, 'xiaohongshu'), [content]);
   const handleXhsMetaChange = useCallback((meta: PlatformMeta) => {
@@ -277,6 +305,12 @@ const ArticleEditor: React.FC = () => {
       setTagIds(article.tag_objects?.map(t => t.id) || []);
       setSeriesId(article.series_id);
       setArticleFilePath(article.file_path);
+      lastSavedFieldsRef.current = {
+        title: article.title,
+        content: article.content,
+        tagIds: article.tag_objects?.map(t => t.id) || [],
+        seriesId: article.series_id,
+      };
       setLoading(false);
       apiService.createArticleVersion(Number(id)).then(version => {
         if (!cancelled) setCurrentVersionId(version.id);
@@ -320,18 +354,6 @@ const ArticleEditor: React.FC = () => {
 
   const displayHtml = styledHtml;
 
-  const autoSaveFn = useCallback(async () => {
-    if (!title.trim() || !articleId) return;
-    const data: any = { title, content, tag_ids: tagIds, series_id: seriesId };
-    try {
-      await dispatch(updateArticle({ id: articleId, data })).unwrap();
-    } catch {}
-  }, [title, articleId, content, tagIds, seriesId, dispatch]);
-
-  const { status: autoSaveStatus, lastSavedAtFormatted, markSaved } = useAutoSave(autoSaveFn, content + title, 3000);
-
-  useEffect(() => { markSavedRef.current = markSaved; }, [markSaved]);
-
   const doSave = useCallback(async (shouldNavigate: boolean = false) => {
     if (!title.trim()) { message.warning('请输入标题'); return null; }
     setSaving(true);
@@ -366,6 +388,7 @@ const ArticleEditor: React.FC = () => {
         }
       }
       historyManager.clearHistory();
+      lastSavedFieldsRef.current = { title, content, tagIds, seriesId };
       markSavedRef.current?.();
       return result;
     } catch {
@@ -427,10 +450,11 @@ const ArticleEditor: React.FC = () => {
         setContent(prev => prev + '\n' + imgMd, '插入图片');
       }
       message.success('图片上传成功');
+      flush();
     } catch {
       message.error('图片上传失败');
     }
-  }, [articleId, editMode, setContent, previewPlatform, content]);
+  }, [articleId, editMode, setContent, previewPlatform, content, flush]);
 
   const handleInsertFromLibrary = useCallback(() => {
     setMediaPickerRole('content');
@@ -495,12 +519,13 @@ const ArticleEditor: React.FC = () => {
       }
 
       message.success(`已插入 ${mediaList.length} 张图片`);
+      flush();
     } catch {
       message.error('图片插入失败');
     } finally {
       setMediaPickerOpen(false);
     }
-  }, [articleId, editMode, setContent, previewPlatform, content, mediaPickerRole]);
+  }, [articleId, editMode, setContent, previewPlatform, content, mediaPickerRole, flush]);
 
   const handleInsertMarkdown = useCallback((before: string, after: string = '', placeholder: string = '', block: boolean = false, description: string = '插入内容') => {
     if (editMode === 'markdown') {
@@ -543,7 +568,8 @@ const ArticleEditor: React.FC = () => {
       }
       return base + before + (placeholder || '') + (after || '');
     }, description);
-  }, [editMode, setContent]);
+    flush();
+  }, [editMode, setContent, flush]);
 
   const handleCopyRichText = useCallback(async () => {
     if (!styledHtml) {
@@ -592,7 +618,14 @@ const ArticleEditor: React.FC = () => {
     setTagIds(article.tag_objects?.map((t: any) => t.id) || []);
     setSeriesId(article.series_id);
     setVersionHistoryOpen(false);
-  }, [historyManager]);
+    lastSavedFieldsRef.current = {
+      title: article.title,
+      content: article.content,
+      tagIds: article.tag_objects?.map((t: any) => t.id) || [],
+      seriesId: article.series_id,
+    };
+    notifyChange();
+  }, [historyManager, notifyChange]);
 
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const files = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
@@ -728,6 +761,12 @@ const ArticleEditor: React.FC = () => {
           </Button>
           {autoSaveStatus === 'saving' ? (
             <span style={{ fontSize: 12, color: '#999' }}>保存中...</span>
+          ) : autoSaveStatus === 'error' ? (
+            <Tooltip title={errorMessage || '自动保存失败'}>
+              <span style={{ fontSize: 12, color: '#ff4d4f', cursor: 'pointer' }} onClick={() => flush()}>
+                保存失败 (点击重试)
+              </span>
+            </Tooltip>
           ) : lastSavedAtFormatted ? (
             <span style={{ fontSize: 12, color: '#999' }}>最后保存 {lastSavedAtFormatted}</span>
           ) : null}
@@ -746,7 +785,7 @@ const ArticleEditor: React.FC = () => {
           }}>
             <Input
               value={title}
-              onChange={e => setTitle(e.target.value)}
+              onChange={e => { setTitle(e.target.value); notifyChange(); }}
               placeholder="请输入标题"
               variant="borderless"
               style={{ flex: '1 1 200px', fontWeight: 500 }}
@@ -755,7 +794,7 @@ const ArticleEditor: React.FC = () => {
               mode="multiple"
               maxCount={10}
               value={tagIds}
-              onChange={setTagIds}
+              onChange={v => { setTagIds(v); notifyChange(); }}
               placeholder="选择标签（最多10个）"
               variant="borderless"
               style={{ flex: '0 1 280px', minWidth: 160 }}
@@ -771,7 +810,7 @@ const ArticleEditor: React.FC = () => {
             />
             <Select
               value={seriesId}
-              onChange={setSeriesId}
+              onChange={v => { setSeriesId(v); notifyChange(); }}
               placeholder="选择系列"
               variant="borderless"
               style={{ flex: '0 1 200px', minWidth: 140 }}

@@ -17,6 +17,7 @@ from ..models.article_media import ArticleMedia
 from ..models.publish_task import PublishTask
 from ..models.platform import PlatformAccount
 from ..models.tag import Tag, ArticleTag
+from ..models.series import Series
 from ..schemas.article import (
     ArticleCreate,
     ArticleUpdate,
@@ -422,6 +423,22 @@ def create_article(
         logger.error("Failed to create article directory: %s", e)
         raise HTTPException(status_code=500, detail="Failed to create article files")
 
+    if article.series_id is None:
+        default_series = (
+            db.query(Series)
+            .filter(Series.name == "未分类", Series.user_id == current_user.id)
+            .first()
+        )
+        if not default_series:
+            default_series = Series(
+                name="未分类", description="默认系列", sort_order=0, user_id=current_user.id,
+            )
+            db.add(default_series)
+            db.flush()
+        series_id = default_series.id
+    else:
+        series_id = article.series_id
+
     db_article = Article(
         snow_id=snow_id,
         title=article.title,
@@ -430,6 +447,7 @@ def create_article(
         article_type=article.article_type,
         cover_image=article.cover_image,
         group_id=article.group_id,
+        series_id=series_id,
         tags=article.tags or [],
         author_id=current_user.id,
         file_path=article_dir.relative_to(BASE_STORAGE_DIR).as_posix(),
@@ -555,7 +573,21 @@ def update_article(
     tag_ids_value = update_data.pop("tag_ids", None)
 
     for field, value in update_data.items():
-        setattr(article, field, value)
+        if field == "series_id" and value is None:
+            default_series = (
+                db.query(Series)
+                .filter(Series.name == "未分类", Series.user_id == current_user.id)
+                .first()
+            )
+            if not default_series:
+                default_series = Series(
+                    name="未分类", description="默认系列", sort_order=0, user_id=current_user.id,
+                )
+                db.add(default_series)
+                db.flush()
+            setattr(article, "series_id", default_series.id)
+        else:
+            setattr(article, field, value)
 
     if metadata_value is not None:
         article.article_metadata = metadata_value
